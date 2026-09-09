@@ -254,7 +254,7 @@ WValue* webview_value_new_float_list(const float* data,
   self->values_length = data_length;
   self->values = static_cast<float*>(malloc(sizeof(float) * data_length));
   memcpy(self->values, data, sizeof(float) * data_length);
-  return reinterpret_cast<WValue*>(self);
+  return reinterpret_cast<WValue*>(self); 
 }
 
  WValue* webview_value_new_double_list(const double* data,

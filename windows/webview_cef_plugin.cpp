@@ -24,9 +24,13 @@
 #include <chrono>
 #include <vector>
 
+    // WebviewTextureRenderer：基于 PixelBuffer 的纹理渲染器
+	// 职责：将 CEF 渲染的帧数据（BGRA）转换为 Flutter 可消费的 PixelBufferTexture，
 namespace webview_cef {
 	class WebviewTextureRenderer : public WebviewTexture{
 	public:
+		// 构造函数：注册外部纹理到 Flutter 纹理管理器
+		// 参数 texture_registrar：Flutter 纹理注册表指针，用于注册/注销外部纹理
 		WebviewTextureRenderer(FlutterDesktopTextureRegistrarRef texture_registrar) {
 			registrar_ = texture_registrar;
 			texture = std::make_unique<flutter::TextureVariant>(
@@ -386,6 +390,7 @@ namespace webview_cef {
 			// Zero-copy GPU path: CEF OnAcceleratedPaint shared texture -> Flutter
 			// D3D11 surface texture. Falls back to the software pixel-buffer path
 			// only if the D3D11 device could not be created.
+			///判断是否可以创建GPU句柄
 			auto gpu = std::make_shared<WebviewGpuTextureRenderer>(plugin_pointer->m_textureRegistrar);
 			if (gpu->isValid()) {
 				return std::dynamic_pointer_cast<WebviewTexture>(gpu);

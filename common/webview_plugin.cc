@@ -43,7 +43,7 @@ namespace webview_cef {
 	}
 
 	void WebviewPlugin::initCallback() {
-		if (!m_init)
+		if (!m_init) 
 		{
 			m_handler->onPaintCallback = [=, this](int browserId, const void* buffer, int32_t width, int32_t height) {
 				if (m_renderers.find(browserId) != m_renderers.end() && m_renderers[browserId] != nullptr) {
@@ -691,6 +691,7 @@ namespace webview_cef {
 			app->SetProcessMode(3);
 		}
 #endif
+		///派发子进程入口
 		return CefExecuteProcess(mainArgs, app, nullptr);
 	}
 

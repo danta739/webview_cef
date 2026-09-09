@@ -28,21 +28,6 @@ class _MyAppState extends State<MyApp> {
     injectUserScripts.add(UserScript(
         "console.log('injectScript_in_LoadEnd')", ScriptInjectTime.LOAD_END));
 
-    // CSS Injection Script Example
-    // injectUserScripts.add(UserScript(
-    //   '''
-    //     const style = document.createElement('style');
-    //     style.innerHTML = `
-    //       body {
-    //         background-color: yellow;
-    //       }
-    //     `;
-    //
-    //     document.head.appendChild(style);
-    //   ''',
-    //   ScriptInjectTime.LOAD_END,
-    // ));
-
     _controller = WebviewManager().createWebView(
         loading: const Text("not initialized"),
         injectUserScripts: injectUserScripts);

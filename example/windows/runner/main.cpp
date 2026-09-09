@@ -9,10 +9,13 @@
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
   //start cef deamon processes. MUST CALL FIRST
-  int exit_code = initCEFProcesses(instance);
-  if (exit_code >= 0) {
-    return exit_code;
-  }
+    ///返回负数表示为主进程
+    ///返回正数当前是子进程（GPU / renderer / utility 等），必须立即退出，让位给子进程入口
+   int exit_code = initCEFProcesses(instance);
+
+   if (exit_code >= 0) {
+     return exit_code;
+   }
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
