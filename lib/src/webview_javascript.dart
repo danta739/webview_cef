@@ -1,47 +1,46 @@
-/// A message that was sent by JavaScript code running in a [WebView].
+/// 由运行在 [WebView] 中的 JavaScript 代码发送的消息。
 class JavascriptMessage {
-  /// Constructs a JavaScript message object.
+  /// 构造一个 JavaScript 消息对象。
   ///
-  /// The `message` parameter must not be null.
+  /// `message` 参数不能为 null。
   const JavascriptMessage(this.message, this.callbackId, this.frameId);
 
-  /// The contents of the message that was sent by the JavaScript code.
+  /// 由 JavaScript 代码发送的消息内容。
   final String message;
 
-  //  The callbackId of the JavaScript code
+  //  JavaScript 代码的 callbackId
   final String callbackId;
-  //  the frameId of the webview frame
+  //  webview 帧的 frameId
   final String frameId;
 }
 
 final RegExp _validChannelNames = RegExp('^[a-zA-Z_][a-zA-Z0-9.]*\$');
 
-/// A named channel for receiving messaged from JavaScript code running inside a web view.
+/// 用于接收来自 webview 内运行的 JavaScript 代码消息的命名通道。
 class JavascriptChannel {
-  /// Constructs a Javascript channel.
+  /// 构造一个 Javascript 通道。
   ///
-  /// The parameters `name` and `onMessageReceived` must not be null.
+  /// `name` 和 `onMessageReceived` 参数不能为 null。
   JavascriptChannel({
     required this.name,
     required this.onMessageReceived,
   }) : assert(_validChannelNames.hasMatch(name));
 
-  /// The channel's name.
+  /// 通道的名称。
   ///
-  /// Passing this channel object as part of a [WebView.javascriptChannels] adds a channel object to
-  /// the Javascript window object's property named `name`.
+  /// 将此通道对象作为 [WebView.javascriptChannels] 的一部分传入，会向 Javascript window 对象
+  /// 添加一个名为 `name` 的属性。
   ///
-  /// The name must start with a letter or underscore(_), followed by any combination of those
-  /// characters plus digits.
+  /// 名称必须以字母或下划线(_)开头，后面可以是这些字符与数字的任意组合。
   ///
-  /// Note that any JavaScript existing `window` property with this name will be overriden.
+  /// 注意，任何与此名称相同的 JavaScript 已存在的 `window` 属性将被覆盖。
   ///
-  /// See also [WebView.javascriptChannels] for more details on the channel registration mechanism.
+  /// 另请参阅 [WebView.javascriptChannels] 了解通道注册机制的更多详细信息。
   final String name;
 
-  /// A callback that's invoked when a message is received through the channel.
+  /// 当通过通道接收到消息时调用的回调。
   final JavascriptMessageHandler onMessageReceived;
 }
 
-/// Callback type for handling messages sent from Javascript running in a web view.
+/// 用于处理从 webview 中运行的 Javascript 发送的消息的回调类型。
 typedef JavascriptMessageHandler = void Function(JavascriptMessage message);

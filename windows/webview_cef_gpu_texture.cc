@@ -10,7 +10,7 @@ namespace webview_cef {
 
     namespace {
         ///像素格式映射
-        // Maps CEF/D3D BGRA or RGBA to the matching Flutter pixel format.
+        // 将 CEF/D3D 的 BGRA 或 RGBA 映射到匹配的 Flutter 像素格式。
         FlutterDesktopPixelFormat ToFlutterFormat(DXGI_FORMAT format) {
             switch (format) {
                 case DXGI_FORMAT_R8G8B8A8_UNORM:
@@ -21,10 +21,9 @@ namespace webview_cef {
             }
         }
 
-        // Holds a reference to the bridge texture for the lifetime of one Flutter
-        // "obtain descriptor" call so the shared handle stays valid until Flutter
-        // has opened it. The engine invokes release_callback when it is done.
-        struct   {
+        // 在一次 Flutter "obtain descriptor" 调用期间持有桥接纹理的引用，
+        // 以使共享句柄在 Flutter 打开它之前保持有效。引擎完成后会调用 release_callback。
+        struct DescriptorHolder {
             ComPtr<ID3D11Texture2D> texture;
             FlutterDesktopGpuSurfaceDescriptor descriptor = {};
         };
@@ -34,8 +33,8 @@ namespace webview_cef {
         : registrar_(registrar) {
 
         // 设置设备创建标志：必须包含 BGRA_SUPPORT。
-        // Create our own hardware D3D11 device. BGRA support is required so the
-        // bridge texture format matches CEF's output and Flutter/ANGLE.
+        // 创建D3D11 设备。需要 BGRA 支持以便桥接纹理格式与
+        // CEF 输出和 Flutter/ANGLE 相匹配。
         const UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
         ///期望的 Direct3D 功能级别
         const D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
@@ -55,7 +54,7 @@ namespace webview_cef {
                                        &device, nullptr, &context);
         ///如果硬件设备创建失败，则回退到 WARP （CPU）软件渲染器。
         if (FAILED(hr)) {
-            // Fall back to the WARP software renderer (still GPU-surface based).
+            // 回退到 WARP 软件渲染器（仍基于 GPU 表面）。
             hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, flags,
                                    levels, ARRAYSIZE(levels), D3D11_SDK_VERSION,
                                    &device, nullptr, &context);
@@ -65,10 +64,10 @@ namespace webview_cef {
                       << "); GPU texture path unavailable." << std::endl;
             return;
         }
-        ///CEF传来的共享纹理使用的是 NT句柄，必须先调用OpenSharedResource1 
+        ///CEF传来的共享纹理使用的是 NT句柄，必须先调用OpenSharedResource1
         // 而基础的 ID3D11Device 没有此方法。因此需要通过 COM 的 QueryInterface 机制
         // 将设备向上转型（As）为 ID3D11Device1。
-        // OpenSharedResource1 (for CEF's NT shared handle) needs ID3D11Device1.
+        // OpenSharedResource1（用于 CEF 的 NT 共享句柄）需要 ID3D11Device1。
         if (FAILED(device.As(&device_))) {
             device_.Reset();
             return;
@@ -104,7 +103,7 @@ namespace webview_cef {
         }
     }
     /// <summary>
-    /// 确保桥接宽高和格式合法 
+    /// 确保桥接宽高和格式合法
     /// </summary>
     /// <param name="width"></param>
     /// <param name="height"></param>
@@ -127,8 +126,8 @@ namespace webview_cef {
         desc.Usage = D3D11_USAGE_DEFAULT;
         desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
         ///把纹理生成一个共享资源的句柄（GetSharedHandle
-        // Legacy shared so ANGLE can open the texture on its own device through a
-        // share handle (EGL_D3D_TEXTURE_2D_SHARE_HANDLE_ANGLE).
+        // 旧版共享，使 ANGLE 可以通过共享句柄在自己的设备上打开纹理
+        // (EGL_D3D_TEXTURE_2D_SHARE_HANDLE_ANGLE)。
         desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
         if (FAILED(device_->CreateTexture2D(&desc, nullptr, &bridge_tex_))) {
             return false;
@@ -153,8 +152,8 @@ namespace webview_cef {
         }
         std::lock_guard<std::mutex> lock(mutex_);
 
-        // CEF's shared texture is pool-owned and only valid during this call, so
-        // reopen it on our device every frame (NT handle -> OpenSharedResource1).
+        // CEF 的共享纹理由池拥有，仅在此次调用期间有效，因此每帧在我们的设备上
+        // 重新打开它（NT 句柄 -> OpenSharedResource1）。
         ///将CEF 传来的共享句柄还原为本设备上的 ID3D11Texture2D 对象
         ComPtr<ID3D11Texture2D> cef_tex;
         HRESULT hr = device_->OpenSharedResource1(
@@ -192,7 +191,7 @@ namespace webview_cef {
         }
         //DescriptorHolder 通过在堆上分配内存，并将指针交给 Flutter，同时配合 release_callback 告诉 Flutter,当用完了这个 Descriptor，调用这个回调函数，会自己把这块内存 delete 掉。
         auto* holder = new DescriptorHolder();
-        holder->texture = bridge_tex_;  // keep alive until Flutter opens the handle
+        holder->texture = bridge_tex_;  // 在 Flutter 打开句柄之前保持存活
         holder->descriptor.struct_size = sizeof(FlutterDesktopGpuSurfaceDescriptor);
         holder->descriptor.handle = shared_handle_;
         holder->descriptor.width = holder->descriptor.visible_width = tex_width_;

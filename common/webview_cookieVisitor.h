@@ -20,7 +20,7 @@ public:
 
 	std::map<std::string, std::map<std::string, std::string>> getVisitedCookies();
 
-    // Include the default reference counting implementation.
+    // 包含默认的引用计数实现。
     IMPLEMENT_REFCOUNTING(WebviewCookieVisitor);
 
 private:

@@ -3,12 +3,12 @@
 #ifdef WEBVIEW_CEF_GPU_TEXTURE
 #include "webview_cef_gpu_texture.h"
 #endif
-// This must be included before many other Windows headers.
+// 必须在许多其他 Windows 头文件之前包含。
 #include <windows.h>
 #include <imm.h>
 #include <commctrl.h>
 
-// For getPlatformVersion; remove unless needed for your plugin implementation.
+// 用于 getPlatformVersion；除非插件实现需要，否则请删除。
 #include <VersionHelpers.h>
 
 #include <flutter/method_channel.h>
@@ -24,72 +24,66 @@
 #include <chrono>
 #include <vector>
 
-    // WebviewTextureRenderer：基于 PixelBuffer 的纹理渲染器
-	// 职责：将 CEF 渲染的帧数据（BGRA）转换为 Flutter 可消费的 PixelBufferTexture，
 namespace webview_cef {
-	class WebviewTextureRenderer : public WebviewTexture{
-	public:
-		// 构造函数：注册外部纹理到 Flutter 纹理管理器
-		// 参数 texture_registrar：Flutter 纹理注册表指针，用于注册/注销外部纹理
-		WebviewTextureRenderer(FlutterDesktopTextureRegistrarRef texture_registrar) {
-			registrar_ = texture_registrar;
-			texture = std::make_unique<flutter::TextureVariant>(
-				flutter::PixelBufferTexture([this](size_t width, size_t height) -> const FlutterDesktopPixelBuffer* {
-					return this->CopyPixelBuffer(width, height);
-				}));
-			FlutterDesktopTextureInfo info = {};
-			info.type = kFlutterDesktopPixelBufferTexture;
-			info.pixel_buffer_config.user_data = std::get_if<flutter::PixelBufferTexture>(texture.get());
-			info.pixel_buffer_config.callback = [](size_t width, size_t height, void* user_data) -> const FlutterDesktopPixelBuffer* {
+	WebviewTextureRenderer::WebviewTextureRenderer(
+		FlutterDesktopTextureRegistrarRef texture_registrar)
+		: registrar_(texture_registrar) {
+		texture = std::make_unique<flutter::TextureVariant>(
+			flutter::PixelBufferTexture([this](size_t width, size_t height) {
+				return this->CopyPixelBuffer(width, height);
+			}));
+		FlutterDesktopTextureInfo info = {};
+		info.type = kFlutterDesktopPixelBufferTexture;
+		info.pixel_buffer_config.user_data =
+			std::get_if<flutter::PixelBufferTexture>(texture.get());
+		info.pixel_buffer_config.callback =
+			[](size_t width, size_t height, void* user_data) {
 				auto texture = static_cast<flutter::PixelBufferTexture*>(user_data);
 				return texture->CopyPixelBuffer(width, height);
 			};
-			textureId = FlutterDesktopTextureRegistrarRegisterExternalTexture(registrar_, &info);
-		}
+		textureId = FlutterDesktopTextureRegistrarRegisterExternalTexture(
+			registrar_, &info);
+	}
 
-		virtual ~WebviewTextureRenderer() {
-			std::lock_guard<std::mutex> autolock(mutex_);
-			if(registrar_){
-				// FlutterDesktopTextureRegistrarUnregisterExternalTexture(registrar_, textureId, nullptr, nullptr);
+	WebviewTextureRenderer::~WebviewTextureRenderer() {
+		std::lock_guard<std::mutex> autolock(mutex_);
+		if (registrar_) {
+			// FlutterDesktopTextureRegistrarUnregisterExternalTexture(registrar_, textureId, nullptr, nullptr);
+		}
+	}
+
+	const FlutterDesktopPixelBuffer* WebviewTextureRenderer::CopyPixelBuffer(
+		size_t width, size_t height) const {
+		std::lock_guard<std::mutex> autolock(mutex_);
+		return pixel_buffer.get();
+	}
+
+	void WebviewTextureRenderer::onFrame(const void* buffer, int width, int height) {
+		const std::lock_guard<std::mutex> autolock(mutex_);
+		if (!pixel_buffer.get() || pixel_buffer.get()->width != width ||
+			pixel_buffer.get()->height != height) {
+			if (!pixel_buffer.get()) {
+				pixel_buffer = std::make_unique<FlutterDesktopPixelBuffer>();
+				pixel_buffer->release_context = nullptr;
 			}
+			pixel_buffer->width = width;
+			pixel_buffer->height = height;
+			const auto size = width * height * 4;
+			backing_pixel_buffer.reset(new uint8_t[size]);
+			pixel_buffer->buffer = backing_pixel_buffer.get();
 		}
 
-		const FlutterDesktopPixelBuffer *CopyPixelBuffer(size_t width, size_t height) const{
-			std::lock_guard<std::mutex> autolock(mutex_);
-    		return pixel_buffer.get();
+		SwapBufferFromBgraToRgba((void*)pixel_buffer->buffer, buffer, width, height);
+		if (registrar_) {
+			FlutterDesktopTextureRegistrarMarkExternalTextureFrameAvailable(
+				registrar_, textureId);
 		}
-
-		virtual void onFrame(const void* buffer, int width, int height) override{
-			const std::lock_guard<std::mutex> autolock(mutex_);
-			if (!pixel_buffer.get() || pixel_buffer.get()->width != width || pixel_buffer.get()->height != height) {
-				if (!pixel_buffer.get()) {
-					pixel_buffer = std::make_unique<FlutterDesktopPixelBuffer>();
-					pixel_buffer->release_context = nullptr;
-				}
-				pixel_buffer->width = width;
-				pixel_buffer->height = height;
-				const auto size = width * height * 4;
-				backing_pixel_buffer.reset(new uint8_t[size]);
-				pixel_buffer->buffer = backing_pixel_buffer.get();
-			}
-
-			SwapBufferFromBgraToRgba((void*)pixel_buffer->buffer, buffer, width, height);
-			if(registrar_){
-				FlutterDesktopTextureRegistrarMarkExternalTextureFrameAvailable(registrar_, textureId);
-			}
-		}
-
-		FlutterDesktopTextureRegistrarRef registrar_;
-		std::unique_ptr<flutter::TextureVariant> texture;
-		mutable std::shared_ptr<FlutterDesktopPixelBuffer> pixel_buffer;
-		std::unique_ptr<uint8_t> backing_pixel_buffer;
-		mutable std::mutex mutex_;
-	};
+	}
 
 	static flutter::EncodableValue encode_wvalue_to_flvalue(WValue* args) {
-		// A null value (or a Null-typed WValue) maps to a null EncodableValue.
-		// Note: EncodableValue(nullptr) must NOT be used — under C++20 it resolves
-		// to std::string(const char*=nullptr) and crashes in strlen.
+		// 空值（或 Null 类型的 WValue）映射到 null EncodableValue。
+		// 注意：不能使用 EncodableValue(nullptr) — 在 C++20 下它解析为
+		// std::string(const char*=nullptr)，会导致 strlen 崩溃。
 		if (args == nullptr) {
 			return flutter::EncodableValue();
 		}
@@ -100,8 +94,8 @@ namespace webview_cef {
 			case Webview_Value_Type_Int:
 				return flutter::EncodableValue(webview_value_get_int(args));
 			case Webview_Value_Type_Float:
-				// flutter::EncodableValue has no scalar float alternative; C++20's
-				// stricter std::variant rules no longer auto-promote float to double.
+				// flutter::EncodableValue 没有标量 float 替代类型；C++20 更严格的
+				// std::variant 规则不再自动将 float 提升为 double。
 				return flutter::EncodableValue(static_cast<double>(webview_value_get_float(args)));
 			case Webview_Value_Type_Double:
 				return flutter::EncodableValue(webview_value_get_double(args));
@@ -215,16 +209,15 @@ namespace webview_cef {
 
 	std::unordered_map<HWND, std::shared_ptr<WebviewPlugin>> webviewPlugins;
 	std::unordered_map<HWND, std::function<void(std::string method,flutter::EncodableValue * arguments)>> webviewChannels;
-	// Guards webviewPlugins against the vsync driver thread's snapshot reads.
+	// 防止 webviewPlugins 被 vsync 驱动线程的快照读取访问。
 	static std::mutex g_pluginsMutex;
 
 #ifdef WEBVIEW_CEF_GPU_TEXTURE
-	// ---- Vsync-driven external BeginFrame -----------------------------------
-	// With external_begin_frame_enabled the browser only produces a frame when
-	// SendExternalBeginFrame is called. We tick it on every display vblank so the
-	// webview's frame rate follows the monitor's actual refresh rate (adaptive,
-	// not capped at 60). WaitForVBlank blocks until the next vblank and tracks
-	// the current refresh rate automatically.
+	// ---- Vsync 驱动的外部 BeginFrame -----------------------------------
+	// 启用 external_begin_frame_enabled 后，浏览器仅在调用 SendExternalBeginFrame 时
+	// 才生成一帧。我们在每个显示 vblank 上触发它，使 webview 的帧率跟随显示器的
+	// 实际刷新率（自适应，不受 60 限制）。WaitForVBlank 阻塞至下一个 vblank，
+	// 并自动跟踪当前刷新率。
 	static std::thread g_vsyncThread;
 	static std::atomic<bool> g_vsyncRunning{false};
 
@@ -288,20 +281,20 @@ namespace webview_cef {
 
 	static constexpr UINT_PTR kImeSubclassId = 1;
 
-	// The OS IME must be intercepted in the window procedure BEFORE DefWindowProc
-	// runs, otherwise the default handling consumes/converts the result string and
-	// shows its own composition window. We can't do that from the runner's
-	// post-DispatchMessage hook, so the Flutter view HWND is subclassed here.
+	// 操作系统 IME 必须在 DefWindowProc 运行之前的窗口过程中拦截，
+	// 否则默认处理会消耗/转换结果字符串并显示自己的组合窗口。
+	// 我们无法从 runner 的 post-DispatchMessage 钩子中执行此操作，
+	// 因此在这里对 Flutter 视图 HWND 进行子类化。
 	static LRESULT CALLBACK ImeSubclassProc(HWND hwnd, UINT message, WPARAM wparam,
 		LPARAM lparam, UINT_PTR, DWORD_PTR) {
 		switch (message) {
 		case WM_IME_SETCONTEXT:
-			// Don't let the OS draw its own composition window; the preedit is
-			// rendered inside the web page via ImeSetComposition.
+			// 不让操作系统绘制自己的组合窗口；预编辑通过 ImeSetComposition
+			// 在网页内部渲染。
 			lparam &= ~ISC_SHOWUICOMPOSITIONWINDOW;
 			return DefSubclassProc(hwnd, message, wparam, lparam);
 		case WM_IME_STARTCOMPOSITION:
-			// Suppress default composition UI; we drive composition ourselves.
+			// 禁止默认的组合 UI；我们自己驱动组合。
 			return 0;
 		case WM_IME_COMPOSITION: {
 			auto pit = webviewPlugins.find(hwnd);
@@ -310,7 +303,7 @@ namespace webview_cef {
 			}
 			HIMC imc = ImmGetContext(hwnd);
 			if (imc) {
-				// Committed result -> commit it to the focused browser.
+				// 已提交结果 -> 提交到焦点浏览器。
 				if (lparam & GCS_RESULTSTR) {
 					LONG bytes = ImmGetCompositionStringW(imc, GCS_RESULTSTR, nullptr, 0);
 					if (bytes > 0) {
@@ -319,7 +312,7 @@ namespace webview_cef {
 						pit->second->imeCommitTextNative(ws);
 					}
 				}
-				// Ongoing preedit -> set composition (real-time on-screen text).
+				// 正在进行的预编辑 -> 设置组合（实时屏幕文本）。
 				if (lparam & GCS_COMPSTR) {
 					LONG bytes = ImmGetCompositionStringW(imc, GCS_COMPSTR, nullptr, 0);
 					if (bytes > 0) {
@@ -332,8 +325,8 @@ namespace webview_cef {
 				}
 				ImmReleaseContext(hwnd, imc);
 			}
-			// Consume: prevent DefWindowProc from showing the default IME window or
-			// generating duplicate WM_IME_CHAR/WM_CHAR for the committed text.
+			// 消费：防止 DefWindowProc 显示默认 IME 窗口或为已提交文本
+			// 生成重复的 WM_IME_CHAR/WM_CHAR。
 			return 0;
 		}
 		case WM_IME_ENDCOMPOSITION: {
@@ -370,11 +363,11 @@ namespace webview_cef {
 			webviewPlugins.emplace(plugin->m_hwnd, plugin->m_plugin);
 		}
 #ifdef WEBVIEW_CEF_GPU_TEXTURE
-		// Begin ticking external BeginFrame on every vblank (drives GPU frames).
+		// 在每个 vblank 上开始触发外部 BeginFrame（驱动 GPU 帧）。
 		StartVsyncDriver();
 #endif
-		// Subclass the Flutter view window to intercept WM_IME_* before the engine
-		// and DefWindowProc handle them (required for correct CJK composition/commit).
+		// 子类化 Flutter 视图窗口，在引擎和 DefWindowProc 处理 WM_IME_* 之前拦截
+		// （正确处理 CJK 组合/提交所必需）。
 		SetWindowSubclass(plugin->m_hwnd, ImeSubclassProc, kImeSubclassId, 0);
 		webviewChannels.emplace(plugin->m_hwnd, [plugin_pointer = plugin.get()](std::string method, flutter::EncodableValue* arguments) {
 			plugin_pointer->m_channel->InvokeMethod(method, std::make_unique<flutter::EncodableValue>(*arguments));
@@ -387,9 +380,8 @@ namespace webview_cef {
 
 		plugin->m_plugin->setCreateTextureFunc([plugin_pointer = plugin.get()]() {
 #ifdef WEBVIEW_CEF_GPU_TEXTURE
-			// Zero-copy GPU path: CEF OnAcceleratedPaint shared texture -> Flutter
-			// D3D11 surface texture. Falls back to the software pixel-buffer path
-			// only if the D3D11 device could not be created.
+			// 零拷贝 GPU 路径：CEF OnAcceleratedPaint 共享纹理 -> Flutter
+			// D3D11 表面纹理。仅在无法创建 D3D11 设备时才回退到软件像素缓冲区路径。
 			///判断是否可以创建GPU句柄
 			auto gpu = std::make_shared<WebviewGpuTextureRenderer>(plugin_pointer->m_textureRegistrar);
 			if (gpu->isValid()) {
@@ -419,14 +411,16 @@ namespace webview_cef {
 		webviewChannels.erase(m_hwnd);
         if(nowEmpty){
 #ifdef WEBVIEW_CEF_GPU_TEXTURE
-			// Stop the vsync thread before shutting CEF down. Must not hold
-			// g_pluginsMutex here: the thread takes it while snapshotting.
+			// 在关闭 CEF 之前停止 vsync 线程。这里不能持有 g_pluginsMutex：
+			// 线程在快照时需要它。
 			StopVsyncDriver();
 #endif
 			webview_cef::stopCEF();
 		}
 	}
-
+/// @brief 处理 Flutter MethodChannel 的方法调用
+/// @param method_call 方法名 + 参数（EncodableValue 格式）
+/// @param result      结果回调，用于将处理结果返回给 Flutter 端
 	void WebviewCefPlugin::HandleMethodCall(
 		const flutter::MethodCall<flutter::EncodableValue>& method_call,
 		std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
@@ -449,8 +443,8 @@ namespace webview_cef {
 		switch (message) {
 		case WM_USER + 1:
 		{
-			// These were heap-allocated in setInvokeMethodFunc; take ownership and
-			// free them after dispatch (InvokeMethod copies the arguments).
+			// 这些在 setInvokeMethodFunc 中通过堆分配；在分发后获取所有权并释放
+			// （InvokeMethod 会复制参数）。
 			flutter::EncodableValue *method = (flutter::EncodableValue *)wparam;
 			flutter::EncodableValue *args = (flutter::EncodableValue *)lparam;
 			if (webviewPlugins.find(hwnd) != webviewPlugins.end()) {
@@ -460,7 +454,7 @@ namespace webview_cef {
 			delete args;
 			break;
 		}
-		// WM_IME_* are handled in ImeSubclassProc (before DefWindowProc), not here.
+		// WM_IME_* 在 ImeSubclassProc 中处理（早于 DefWindowProc），而不是此处。
 		case WM_SYSCHAR:
 		case WM_SYSKEYDOWN:
 		case WM_SYSKEYUP:

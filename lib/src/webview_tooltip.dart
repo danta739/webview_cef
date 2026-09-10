@@ -17,7 +17,7 @@ class WebviewTooltip {
       const TextStyle(color: Colors.black, fontSize: 14);
 
   void _buildOverlayEntry(String text) {
-    //往Overlay中插入插入OverlayEntry
+    //往Overlay中插入OverlayEntry
     _timer = Timer(const Duration(milliseconds: 500), () {
       _overlayEntry = OverlayEntry(builder: (context) {
         double height = _box.size.height;
@@ -95,10 +95,10 @@ class WebviewTooltip {
 }
 
 enum TooltipStatus {
-  //Tooltip is prepare to show, Timer is running
+  //Tooltip 准备显示，Timer 正在运行
   prepare,
-  //Tooltip is alreay shown
+  //Tooltip 已显示
   shown,
-  //Tooltip is hide or uninitialized
+  //Tooltip 已隐藏或未初始化
   hide
 }

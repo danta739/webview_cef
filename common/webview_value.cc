@@ -159,7 +159,7 @@ static ssize_t webview_value_lookup_index(WValue* self, WValue* key) {
   return -1;
 }
 
-// Helper function to match GDestroyNotify type.
+// 用于匹配 GDestroyNotify 类型的辅助函数。
 static void webview_value_destroy(void *value) {
   webview_value_unref(static_cast<WValue*>(value));
 }
@@ -764,8 +764,7 @@ WValue* webview_value_get_by_string(WValue* self, const char* key) {
   return_val_if_fail(self != nullptr, nullptr);
   WValue* string_key = webview_value_new_string(key);
   WValue* value = webview_value_get_by_key(self, string_key);
-  // Explicit unref used because the g_autoptr is triggering a false positive
-  // with clang-tidy.
+  // 使用显式 unref，因为 g_autoptr 在 clang-tidy 下会触发误报。
   webview_value_unref(string_key);
   return value;
 }

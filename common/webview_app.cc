@@ -8,73 +8,7 @@
 
 #include "include/cef_browser.h"
 #include "include/cef_command_line.h"
-#include "include/views/cef_browser_view.h"
-#include "include/views/cef_window.h"
 #include "include/wrapper/cef_helpers.h"
-
-namespace {
-
-// When using the Views framework this object provides the delegate
-// implementation for the CefWindow that hosts the Views-based browser.
-class SimpleWindowDelegate : public CefWindowDelegate {
-public:
-    explicit SimpleWindowDelegate(CefRefPtr<CefBrowserView> browser_view)
-    : browser_view_(browser_view) {}
-    
-    void OnWindowCreated(CefRefPtr<CefWindow> window) override {
-        // Add the browser view and show the window.
-        window->AddChildView(browser_view_);
-        window->Show();
-        
-        // Give keyboard focus to the browser view.
-        browser_view_->RequestFocus();
-    }
-    
-    void OnWindowDestroyed(CefRefPtr<CefWindow> window) override {
-        browser_view_ = nullptr;
-    }
-    
-    bool CanClose(CefRefPtr<CefWindow> window) override {
-        // Allow the window to close if the browser says it's OK.
-        CefRefPtr<CefBrowser> browser = browser_view_->GetBrowser();
-        if (browser)
-            return browser->GetHost()->TryCloseBrowser();
-        return true;
-    }
-    
-    CefSize GetPreferredSize(CefRefPtr<CefView> view) override {
-        return CefSize(1280, 720);
-    }
-    
-private:
-    CefRefPtr<CefBrowserView> browser_view_;
-    
-    IMPLEMENT_REFCOUNTING(SimpleWindowDelegate);
-    DISALLOW_COPY_AND_ASSIGN(SimpleWindowDelegate);
-};
-
-class SimpleBrowserViewDelegate : public CefBrowserViewDelegate {
-public:
-    SimpleBrowserViewDelegate() {}
-    
-    bool OnPopupBrowserViewCreated(CefRefPtr<CefBrowserView> browser_view,
-                                   CefRefPtr<CefBrowserView> popup_browser_view,
-                                   bool is_devtools) override {
-        // Create a new top-level Window for the popup. It will show itself after
-        // creation.
-        CefWindow::CreateTopLevelWindow(
-                                        new SimpleWindowDelegate(popup_browser_view));
-        
-        // We created the Window.
-        return true;
-    }
-    
-private:
-    IMPLEMENT_REFCOUNTING(SimpleBrowserViewDelegate);
-    DISALLOW_COPY_AND_ASSIGN(SimpleBrowserViewDelegate);
-};
-
-}  // namespace
 
 WebviewApp::WebviewApp(CefRefPtr<WebviewHandler> handler) {
     m_handler = handler;
@@ -82,30 +16,26 @@ WebviewApp::WebviewApp(CefRefPtr<WebviewHandler> handler) {
 
 WebviewApp::ProcessType WebviewApp::GetProcessType(CefRefPtr<CefCommandLine> command_line)
 {
-    // The command-line flag won't be specified for the browser process.
+    // 浏览器进程不会指定命令行标志。
 	if (!command_line->HasSwitch("type"))
     {
         return BrowserProcess;
     }
 
 	const std::string& process_type = command_line->GetSwitchValue("type");
-	if (process_type == "renderer")
-		return RendererProcess;
-#if defined(OS_LINUX)
-	else if (process_type == "zygote")
-		return ZygoteProcess;
-#endif
+    if (process_type == "renderer")
+        return RendererProcess;
 	return OtherProcess;
 }
 
 void WebviewApp::OnBeforeCommandLineProcessing(const CefString &process_type, CefRefPtr<CefCommandLine> command_line)
 {
-    // Pass additional command-line flags to the browser process.
+    // 向浏览器进程传递其他命令行标志。
 	if (process_type.empty())
 	{
 #ifndef WEBVIEW_CEF_GPU_TEXTURE
-		// The GPU shared-texture path (OnAcceleratedPaint) requires the GPU
-		// compositor; only allow disabling the GPU when it is not compiled in.
+		// GPU 共享纹理路径（OnAcceleratedPaint）需要 GPU 合成器；
+		// 仅在未编译此功能时才允许禁用 GPU。
 		if (!m_bEnableGPU)
 		{
 			command_line->AppendSwitch("disable-gpu");
@@ -113,29 +43,29 @@ void WebviewApp::OnBeforeCommandLineProcessing(const CefString &process_type, Ce
 		}
 #endif
 
-		command_line->AppendSwitch("disable-web-security");                                     //disable web security
-		command_line->AppendSwitch("allow-running-insecure-content");                           //allow running insecure content in secure pages
-		// Don't create a "GPUCache" directory when cache-path is unspecified.
-		command_line->AppendSwitch("disable-gpu-shader-disk-cache");                            //disable gpu shader disk cache
+		command_line->AppendSwitch("disable-web-security");                                     //禁用 Web 安全
+		command_line->AppendSwitch("allow-running-insecure-content");                           //允许在安全页面中运行不安全内容
+		// 当未指定 cache-path 时，不创建 "GPUCache" 目录。
+		command_line->AppendSwitch("disable-gpu-shader-disk-cache");                            //禁用 gpu 着色器磁盘缓存
         command_line->AppendSwitch("no-sandbox");
 
 		//http://www.chromium.org/developers/design-documents/process-models
 		if (m_uMode == 1)
 		{
-			command_line->AppendSwitch("process-per-site");                                     //each site in its own process
-			command_line->AppendSwitchWithValue("renderer-process-limit", "8");              //limit renderer process count to decrease memory usage
+			command_line->AppendSwitch("process-per-site");                                     //每个站点运行在独立的进程中
+			command_line->AppendSwitchWithValue("renderer-process-limit", "8");              //限制渲染进程数量以减少内存占用
 		}
 		else if (m_uMode == 2)
 		{
-			command_line->AppendSwitch("process-per-tab");                                      //each tab in its own process
+			command_line->AppendSwitch("process-per-tab");                                      //每个标签运行在独立的进程中
 		}
 		else if (m_uMode == 3)
 		{
-			command_line->AppendSwitch("single-process");                                     //all in one process
+			command_line->AppendSwitch("single-process");                                     //所有内容在同一个进程中
 		}
-		command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");     //autoplay policy for media
+		command_line->AppendSwitchWithValue("autoplay-policy", "no-user-gesture-required");     //媒体的自动播放策略
 
-        //Support cross domain requests
+        //支持跨域请求
         std::string values = command_line->GetSwitchValue("disable-features");
         if (values == "")
         {
@@ -151,24 +81,15 @@ void WebviewApp::OnBeforeCommandLineProcessing(const CefString &process_type, Ce
         }
 
         command_line->AppendSwitchWithValue("disable-features", values);
-        // for unsafe domain, add domain to whitelist
+        // 对于不安全域名，将其加入白名单
 		if (!m_strFilterDomain.empty())
 		{
-			command_line->AppendSwitch("ignore-certificate-errors");                            //ignore certificate errors
+			command_line->AppendSwitch("ignore-certificate-errors");                            //忽略证书错误
 			command_line->AppendSwitchWithValue("unsafely-treat-insecure-origin-as-secure",
                 m_strFilterDomain);
 		}
     }
 
-#ifdef __APPLE__
-    command_line->AppendSwitch("use-mock-keychain");
-    // macOS now runs multi-process via bundled CEF helper apps (see the
-    // example Runner's "Embed CEF Helpers" phase). The process model is
-    // selected by m_uMode above, like the other platforms.
-#endif
-#ifdef __linux__
-                                           
-#endif
 }
 
 void WebviewApp::OnContextInitialized()
@@ -186,7 +107,7 @@ void WebviewApp::OnContextInitialized()
 }
 
 // CefRefPtr<CefClient> WebviewApp::GetDefaultClient() {
-//     // Called when a new browser window is created via the Chrome runtime UI.
+//     // 通过 Chrome 运行时 UI 创建新浏览器窗口时调用。
 //     return WebviewHandler::GetInstance();
 // }
 
@@ -197,7 +118,7 @@ void WebviewApp::SetUnSafelyTreatInsecureOriginAsSecure(const CefString &strFilt
 
 void WebviewApp::OnWebKitInitialized()
 {
-    //inject js function for jssdk
+    //为 jssdk 注入 js 函数
     std::string extensionCode = R"(
 			var external = {};
 			var clientSdk = {};
@@ -312,8 +233,8 @@ void WebviewApp::OnUncaughtException(CefRefPtr<CefBrowser> browser, CefRefPtr<Ce
 }
 
 void WebviewApp::OnFocusedNodeChanged(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefDOMNode> node)
- {    
-    //Get node attribute
+ {
+    //获取节点属性
     bool is_editable = (node.get() && node->IsEditable());
     CefRefPtr<CefProcessMessage> message = CefProcessMessage::Create(kFocusedNodeChangedMessage);
     message->GetArgumentList()->SetBool(0, is_editable);

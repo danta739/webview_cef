@@ -3,11 +3,31 @@
 
 #include <flutter/method_channel.h>
 #include <flutter/plugin_registrar_windows.h>
+#include <flutter/texture_registrar.h>
 
 #include <webview_plugin.h>
 #include <memory>
+#include <mutex>
 
 namespace webview_cef {
+
+class WebviewTextureRenderer : public WebviewTexture {
+ public:
+  explicit WebviewTextureRenderer(
+      FlutterDesktopTextureRegistrarRef texture_registrar);
+  ~WebviewTextureRenderer() override;
+
+  const FlutterDesktopPixelBuffer* CopyPixelBuffer(size_t width,
+                                                     size_t height) const;
+  void onFrame(const void* buffer, int width, int height) override;
+
+ private:
+  FlutterDesktopTextureRegistrarRef registrar_ = nullptr;
+  std::unique_ptr<flutter::TextureVariant> texture;
+  mutable std::shared_ptr<FlutterDesktopPixelBuffer> pixel_buffer;
+  std::unique_ptr<uint8_t> backing_pixel_buffer;
+  mutable std::mutex mutex_;
+};
 
 class WebviewCefPlugin : public flutter::Plugin {
  public:
@@ -17,12 +37,12 @@ class WebviewCefPlugin : public flutter::Plugin {
   WebviewCefPlugin();
   virtual ~WebviewCefPlugin();
 
-  // Disallow copy and assign.
+  // 禁止拷贝和赋值。
   WebviewCefPlugin(const WebviewCefPlugin&) = delete;
   WebviewCefPlugin& operator=(const WebviewCefPlugin&) = delete;
 
  private:
-  // Called when a method is called on this plugin's channel from Dart.
+  // 当 Dart 端调用此插件通道的方法时调用。
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
       std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>> result);

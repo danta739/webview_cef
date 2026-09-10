@@ -9,10 +9,10 @@
 #include <cstdint>
 
 
-static const char kJSCallCppFunctionMessage[] = "JSCallCppFunction";		 //js call c++ message
-static const char kExecuteJsCallbackMessage[] = "ExecuteJsCallback";		 //c++ call js message
-static const char kEvaluateCallbackMessage[] = "EvaluateCallback";		 //js callback c++ message
-static const char kFocusedNodeChangedMessage[] = "FocusedNodeChanged";		 //elements that capture focus in web pages changed message
+static const char kJSCallCppFunctionMessage[] = "JSCallCppFunction";		 //js 调用 c++ 的消息
+static const char kExecuteJsCallbackMessage[] = "ExecuteJsCallback";		 //c++ 调用 js 的消息
+static const char kEvaluateCallbackMessage[] = "EvaluateCallback";		 //js 回调 c++ 的消息
+static const char kFocusedNodeChangedMessage[] = "FocusedNodeChanged";		 //网页中获取焦点的元素变化消息
 
 struct JSValue {
     enum class Type { STRING, INT, BOOL, DOUBLE, ARRAY, UNKNOWN } type;

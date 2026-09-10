@@ -1,9 +1,5 @@
 #include "webview_plugin.h"
 
-#ifdef OS_MAC
-#include <include/wrapper/cef_library_loader.h>
-#endif
-
 #include <math.h>
 #include <memory>
 #include <thread>
@@ -15,19 +11,6 @@ namespace webview_cef {
 	CefRefPtr<WebviewApp> app;
 	CefString userAgent;
 	bool isCefInitialized = false;
-#ifdef OS_MAC
-	std::string g_macSubprocessPath;
-	std::string g_macFrameworkDirPath;
-	std::string g_macMainBundlePath;
-
-	void setMacCEFPaths(const std::string& subprocessPath,
-	                    const std::string& frameworkDirPath,
-	                    const std::string& mainBundlePath) {
-		g_macSubprocessPath = subprocessPath;
-		g_macFrameworkDirPath = frameworkDirPath;
-		g_macMainBundlePath = mainBundlePath;
-	}
-#endif
 
 	WebviewPlugin::WebviewPlugin() {
 		m_handler = new WebviewHandler();
@@ -167,10 +150,9 @@ namespace webview_cef {
 
 			m_handler->onFocusedNodeChangeMessage = [=, this](int nBrowserId, bool bEditable)
 			{
-				// Track editable focus per browser so the platform layer can route
-				// raw character keys to the OS IME while a web input is focused
-				// (the IME/delta path handles text). Focus moving to a new node
-				// also ends any prior composition for that browser.
+				// 按浏览器跟踪可编辑焦点，以便平台层在 web 输入获得焦点时
+				// 将原始字符键路由到操作系统 IME（IME/delta 路径处理文本）。
+				// 焦点移动到新节点也会结束该浏览器的任何先前组合。
 				auto rit = m_renderers.find(nBrowserId);
 				if (rit != m_renderers.end() && rit->second) {
 					rit->second->editableFocused = bEditable;
@@ -276,7 +258,7 @@ namespace webview_cef {
 			result(1, nullptr);
 		}
 		else if (name.compare("quit") == 0) {
-			//only call this method when you want to quit the app
+			//仅当需要退出应用时才调用此方法
 			stopCEF();
 			result(1, nullptr);
 		}
@@ -354,16 +336,16 @@ namespace webview_cef {
 		else if (name.compare("imeSetComposition") == 0) {
 			int browserId = int(webview_value_get_int(webview_value_get_list_value(values, 0)));
 			const auto text = webview_value_get_string(webview_value_get_list_value(values, 1));
-			// Non-empty preedit → composition active; empty preedit means the IME
-			// cleared it (e.g. the user deleted the last composing letter).
+			// 非空预编辑 → 组合处于活动状态；空预编辑表示 IME 已清除它
+			// （例如用户删除了最后一个组合字符）。
 			setComposingForBrowser(browserId, text != nullptr && text[0] != '\0');
 			m_handler->imeSetComposition(browserId, text);
 			result(1, nullptr);
-		} 
+		}
 		else if (name.compare("imeCommitText") == 0) {
 			int browserId = int(webview_value_get_int(webview_value_get_list_value(values, 0)));
 			const auto text = webview_value_get_string(webview_value_get_list_value(values, 1));
-			// Commit ends the active composition.
+			// 提交结束活动的组合。
 			setComposingForBrowser(browserId, false);
 			m_handler->imeCommitText(browserId, text);
 			result(1, nullptr);
@@ -373,10 +355,10 @@ namespace webview_cef {
 			if (m_renderers.find(browserId) != m_renderers.end() && m_renderers[browserId] != nullptr) {
 				bool focused = webview_value_get_bool(webview_value_get_list_value(values, 1));
 				m_renderers[browserId].get()->isFocused = focused;
-				// Losing focus ends any composition: the OS IME drops marked text,
-				// but CEF's SetFocus(false) does not blur the DOM node, so no
-				// FocusedNodeChanged fires to clear it — a stale flag would then
-				// mis-route the first keys after the webview is refocused.
+				// 失去焦点会结束任何组合：操作系统 IME 会丢弃标记文本，
+				// 但 CEF 的 SetFocus(false) 不会失焦 DOM 节点，因此不会触发
+				// FocusedNodeChanged 来清除它 — 一个陈旧的标志随后会在 webview
+				// 重新获得焦点后错误地路由首个按键。
 				if (!focused) {
 					m_renderers[browserId].get()->composing = false;
 				}
@@ -476,14 +458,8 @@ namespace webview_cef {
 			result(1, nullptr);
 		}
 		else if(name.compare("hasNativeKeySupport") == 0) {
-#if defined(HAS_GTK) || defined(OS_WIN) || defined(OS_MAC)
-			// Desktop Linux (GTK via processKeyEventForCEF), Windows (WM_KEYDOWN)
-			// and macOS (NSEventMaskKeyDown) all deliver keys to CEF natively.
+			// Windows 通过原生窗口消息路径向 CEF 传递按键事件。
 			bool hasNativeKeySupport = true;
-#else
-			// eLinux (no GTK): use Dart-side handling.
-			bool hasNativeKeySupport = false;
-#endif
 			WValue* ret = webview_value_new_bool(hasNativeKeySupport);
 			result(1, ret);
 			webview_value_unref(ret);
@@ -543,8 +519,7 @@ namespace webview_cef {
                         break;
                     }
                     default:
-                        // Return null as fallback
-                        result(1, nullptr);
+                                        // 返回 null 作为回退
                         return;
                 }
 
@@ -675,23 +650,9 @@ namespace webview_cef {
 
 	int initCEFProcesses()
 	{
-#ifdef OS_MAC
-		CefScopedLibraryLoader loader;
-		if(!loader.LoadInMain()) {
-			printf("load cef err");
-		}
-#endif
 		// handler = new WebviewHandler();
 		app = new WebviewApp();
-#ifdef OS_MAC
-		// No bundled helper resolved → fall back to single-process so consumers
-		// that haven't added the CEF helper apps keep working (mode 3 appends
-		// the "single-process" switch in OnBeforeCommandLineProcessing).
-		if (g_macSubprocessPath.empty()) {
-			app->SetProcessMode(3);
-		}
-#endif
-		///派发子进程入口
+		///分派子进程入口
 		return CefExecuteProcess(mainArgs, app, nullptr);
 	}
 
@@ -703,26 +664,10 @@ namespace webview_cef {
 		if(!userAgent.empty()){
 			CefString(&cefs.user_agent_product) = userAgent;
 		}
-		//locale language setting
+		//区域语言设置
 		//CefString(&cefs.locale) = "zh-CN";
-#ifdef OS_MAC
-		//cef message loop handle by MainApplication on mac
-		cefs.external_message_pump = true;
-		// Multi-process: point CEF at the bundled helper executable and the
-		// framework. The platform layer fills these from the app bundle.
-		if (!g_macSubprocessPath.empty()) {
-			CefString(&cefs.browser_subprocess_path) = g_macSubprocessPath;
-		}
-		if (!g_macFrameworkDirPath.empty()) {
-			CefString(&cefs.framework_dir_path) = g_macFrameworkDirPath;
-		}
-		if (!g_macMainBundlePath.empty()) {
-			CefString(&cefs.main_bundle_path) = g_macMainBundlePath;
-		}
-#else
-		//cef message run in another thread on windows/linux
+		// 在 Windows 上，CEF 在专用线程上运行其消息循环。
 		cefs.multi_threaded_message_loop = true;
-#endif
 		CefInitialize(mainArgs, cefs, app.get(), nullptr);
 	}
 
@@ -738,10 +683,10 @@ namespace webview_cef {
 		int length = width * height;
 		for (int i = 0; i < length; i++) {
 			bgra = src[i];
-			// BGRA in hex = 0xAARRGGBB.
-			rgba = (bgra & 0x00ff0000) >> 16 // Red >> Blue.
-				| (bgra & 0xff00ff00) // Green Alpha.
-				| (bgra & 0x000000ff) << 16; // Blue >> Red.
+			// BGRA 十六进制表示 = 0xAARRGGBB。
+			rgba = (bgra & 0x00ff0000) >> 16 // 红色 >> 蓝色。
+				| (bgra & 0xff00ff00) // 绿色 Alpha。
+				| (bgra & 0x000000ff) << 16; // 蓝色 >> 红色。
 			dest[i] = rgba;
 		}
 	}

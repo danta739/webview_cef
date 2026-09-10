@@ -16,7 +16,7 @@ int GetCefKeyboardModifiers(WPARAM wparam, LPARAM lparam)
 	if (IsKeyDown(VK_MENU))
 		modifiers |= EVENTFLAG_ALT_DOWN;
 
-	// Low bit set from GetKeyState indicates "toggled".
+	// GetKeyState 返回的最低位表示"已切换"。
 	if (::GetKeyState(VK_NUMLOCK) & 1)
 		modifiers |= EVENTFLAG_NUM_LOCK_ON;
 	if (::GetKeyState(VK_CAPITAL) & 1)
@@ -104,24 +104,23 @@ CefKeyEvent getCefKeyEvent(UINT message, WPARAM wparam, LPARAM lparam)
         event.type = KEYEVENT_CHAR;
     event.modifiers = GetCefKeyboardModifiers(wparam, lparam);
 
-    // mimic alt-gr check behaviour from
-    // src/ui/events/win/events_win_utils.cc: GetModifiersFromKeyState
+    // 模拟来自 src/ui/events/win/events_win_utils.cc: GetModifiersFromKeyState 的 alt-gr 检查行为
     if ((event.type == KEYEVENT_CHAR) && IsKeyDown(VK_RMENU))
     {
-        // reverse AltGr detection taken from PlatformKeyMap::UsesAltGraph
-        // instead of checking all combination for ctrl-alt, just check current char
+        // 从 PlatformKeyMap::UsesAltGraph 反向检测 AltGr
+        // 不检查 ctrl-alt 的所有组合，仅检查当前字符
         HKL current_layout = ::GetKeyboardLayout(0);
 
         // https://docs.microsoft.com/en-gb/windows/win32/api/winuser/nf-winuser-vkkeyscanexw
-        // ... high-order byte contains the shift state,
-        // which can be a combination of the following flag bits.
-        // 1 Either SHIFT key is pressed.
-        // 2 Either CTRL key is pressed.
-        // 4 Either ALT key is pressed.
+        // ... 高位字节包含 shift 状态，
+        // 可以是以下标志位的组合。
+        // 1 按下了任一 SHIFT 键。
+        // 2 按下了任一 CTRL 键。
+        // 4 按下了任一 ALT 键。
         SHORT scan_res = ::VkKeyScanExW((WCHAR)wparam, current_layout);
         constexpr auto ctrlAlt = (2 | 4);
         if (((scan_res >> 8) & ctrlAlt) == ctrlAlt)
-        { // ctrl-alt pressed
+        { // 按下了 ctrl-alt
             event.modifiers &= ~(EVENTFLAG_CONTROL_DOWN | EVENTFLAG_ALT_DOWN);
             event.modifiers |= EVENTFLAG_ALTGR_DOWN;
         }

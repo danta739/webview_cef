@@ -10,13 +10,13 @@ import 'webview_javascript.dart';
 import 'webview_textinput.dart';
 import 'webview_tooltip.dart';
 
-// CEF key event types
+// CEF 按键事件类型
 const int keyEventRawKeyDown = 0;
 const int keyEventKeyDown = 1;
 const int keyEventKeyUp = 2;
 const int keyEventChar = 3;
 
-// CEF event flags
+// CEF 事件标志位
 const int eventFlagNone = 0;
 const int eventFlagCapsLockOn = 1 << 0;
 const int eventFlagShiftDown = 1 << 1;
@@ -73,7 +73,7 @@ class WebViewController extends ValueNotifier<bool> {
   get onImeCompositionRangeChangedMessage =>
       _onImeCompositionRangeChangedMessage;
 
-  /// Initializes the underlying platform view.
+  /// 初始化底层平台视图。
   Future<void> initialize(String url) async {
     if (_isDisposed) {
       return Future<void>.value();
@@ -110,7 +110,7 @@ class WebViewController extends ValueNotifier<bool> {
     super.dispose();
   }
 
-  /// Loads the given [url].
+  /// 加载指定的 [url]。
   Future<void> loadUrl(String url) async {
     if (_isDisposed) {
       return;
@@ -119,7 +119,7 @@ class WebViewController extends ValueNotifier<bool> {
     return _pluginChannel.invokeMethod('loadUrl', [_browserId, url]);
   }
 
-  /// Reloads the current document.
+  /// 重新加载当前文档。
   Future<void> reload() async {
     if (_isDisposed) {
       return;
@@ -178,7 +178,7 @@ class WebViewController extends ValueNotifier<bool> {
     return _pluginChannel.invokeMethod('setClientFocus', [_browserId, focus]);
   }
 
-  /// Sends a key event to CEF. Used on platforms without native key support (eLinux).
+  /// 向 CEF 发送按键事件。用于没有原生按键支持的平台（如 Linux）。
   Future<void> sendKeyEvent(int type, int keyCode, int modifiers, int character,
       int unmodifiedCharacter) async {
     if (_isDisposed) {
@@ -237,7 +237,7 @@ class WebViewController extends ValueNotifier<bool> {
         .invokeMethod('evaluateJavascript', [_browserId, code]);
   }
 
-  /// Moves the virtual cursor to [position].
+  /// 将虚拟光标移动到 [position]。
   Future<void> _cursorMove(Offset position) async {
     if (_isDisposed) {
       return;
@@ -274,7 +274,7 @@ class WebViewController extends ValueNotifier<bool> {
         [_browserId, position.dx.round(), position.dy.round()]);
   }
 
-  /// Sets the horizontal and vertical scroll delta.
+  /// 设置水平和垂直滚轮增量。
   Future<void> _setScrollDelta(Offset position, int dx, int dy) async {
     if (_isDisposed) {
       return;
@@ -284,7 +284,7 @@ class WebViewController extends ValueNotifier<bool> {
         [_browserId, position.dx.round(), position.dy.round(), dx, dy]);
   }
 
-  /// Sets the surface size to the provided [size].
+  /// 将表面尺寸设置为提供的 [size]。
   Future<void> _setSize(double dpi, Size size) async {
     if (_isDisposed) {
       return;
@@ -336,16 +336,16 @@ class WebViewState extends State<WebView> with WebeViewTextInput {
 
   @override
   updateEditingValueWithDeltas(List<TextEditingDelta> textEditingDeltas) {
-    /// Handles IME composition only
+    /// 仅处理 IME 组合输入
     for (var d in textEditingDeltas) {
       if (d is TextEditingDeltaInsertion) {
-        // composing text
+        // 组合中的文本
         if (d.composing.isValid) {
           _composingText += d.textInserted;
           _controller.imeSetComposition(_composingText);
         } else {
-          // Directly committed text (e.g. English typing, or a commit delivered
-          // as a plain insertion). Must run on every platform, including Windows.
+          // 直接提交的文本（例如英文输入，或以纯插入形式提交的文本）。
+          // 所有平台都必须处理，包括 Windows。
           _controller.imeCommitText(d.textInserted);
         }
       } else if (d is TextEditingDeltaDeletion) {
@@ -357,12 +357,12 @@ class WebViewState extends State<WebView> with WebeViewTextInput {
         }
       } else if (d is TextEditingDeltaReplacement) {
         if (d.composing.isValid) {
-          // Composition is still ongoing (preedit revised).
+          // 组合输入仍在进行中（预编辑已修改）。
           _composingText = d.replacementText;
           _controller.imeSetComposition(_composingText);
         } else {
-          // Composition finished (a candidate was selected): commit the final
-          // text. Without this the selected text was dropped and never shown.
+          // 组合输入结束（已选择候选词）：提交最终文本。
+          // 没有这一步，选中的文本会被丢弃且不会显示。
           _controller.imeCommitText(d.replacementText);
           _composingText = '';
         }
@@ -419,31 +419,31 @@ class WebViewState extends State<WebView> with WebeViewTextInput {
       setState(() {});
     };
 
-    // Check if platform has native key support (e.g., GTK on desktop Linux)
+    // 检查 Windows 原生按键处理是否可用。
     WebviewManager().hasNativeKeySupport.then((value) {
       _hasNativeKeySupport = value;
     });
 
-    // Report initial surface size
+    // 报告初始表面尺寸
     WidgetsBinding.instance
         .addPostFrameCallback((_) => _reportSurfaceSize(context));
   }
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    // Only handle keys on platforms without native key support (eLinux)
-    // Treat null as "don't handle yet" to prevent double-delivery during async gap
+    // 仅在 Windows 原生按键不可用时处理。
+    // 将 null 视为"暂不处理"，以防止异步间隙中的重复投递
     if (_hasNativeKeySupport != false) {
       return KeyEventResult.ignored;
     }
 
-    // Map Flutter key event to CEF key event
+    // 将 Flutter 按键事件映射到 CEF 按键事件
     final logicalKey = event.logicalKey;
     final character = event.character;
-    
-    // Convert logical key to Windows keycode
+
+    // 将逻辑键转换为 Windows 键码
     int keyCode = _logicalKeyToWindowsKeyCode(logicalKey);
-    
-    // Build modifiers
+
+    // 构造修饰键
     int modifiers = 0;
     if (HardwareKeyboard.instance.isShiftPressed) {
       modifiers |= eventFlagShiftDown;
@@ -454,8 +454,8 @@ class WebViewState extends State<WebView> with WebeViewTextInput {
     if (HardwareKeyboard.instance.isAltPressed) {
       modifiers |= eventFlagAltDown;
     }
-    
-    // Determine event type
+
+    // 确定事件类型
     int type;
     if (event is KeyDownEvent) {
       type = keyEventRawKeyDown;
@@ -464,8 +464,8 @@ class WebViewState extends State<WebView> with WebeViewTextInput {
     } else {
       return KeyEventResult.ignored;
     }
-    
-    // Send key event to CEF
+
+    // 向 CEF 发送按键事件
     _controller.sendKeyEvent(
       type,
       keyCode,
@@ -473,8 +473,8 @@ class WebViewState extends State<WebView> with WebeViewTextInput {
       character?.codeUnitAt(0) ?? 0,
       character?.codeUnitAt(0) ?? 0,
     );
-    
-    // Send CHAR event after RAWKEYDOWN when character is present (required for text entry)
+
+    // 当存在字符时，在 RAWKEYDOWN 之后再发送 CHAR 事件（文本输入必需）
     if (event is KeyDownEvent && character != null) {
       _controller.sendKeyEvent(
         keyEventChar,
@@ -488,8 +488,8 @@ class WebViewState extends State<WebView> with WebeViewTextInput {
   }
 
   int _logicalKeyToWindowsKeyCode(LogicalKeyboardKey key) {
-    // Map Flutter logical keys to Windows key codes
-    // This is a simplified mapping - may need to be expanded
+    // 将 Flutter 逻辑键映射到 Windows 键码
+    // 这是一个简化的映射 - 可能需要扩展
     if (key == LogicalKeyboardKey.f12) return 0x7B;
     if (key == LogicalKeyboardKey.f1) return 0x70;
     if (key == LogicalKeyboardKey.f2) return 0x71;
@@ -517,7 +517,7 @@ class WebViewState extends State<WebView> with WebeViewTextInput {
     if (key == LogicalKeyboardKey.arrowLeft) return 0x25;
     if (key == LogicalKeyboardKey.arrowRight) return 0x27;
     
-    // For alphanumeric keys, use the key label
+    // 对字母数字键，使用键标签
     final keyLabel = key.keyLabel;
     if (keyLabel.length == 1) {
       final charCode = keyLabel.codeUnitAt(0);
@@ -530,8 +530,8 @@ class WebViewState extends State<WebView> with WebeViewTextInput {
         return charCode;
       }
     }
-    
-    // Default fallback
+
+    // 默认回退
     return 0;
   }
 

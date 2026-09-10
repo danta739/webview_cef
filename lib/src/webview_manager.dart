@@ -28,8 +28,7 @@ class WebviewManager extends ValueNotifier<bool> {
 
   get ready => _creatingCompleter.future;
 
-  /// Returns true if the platform has native key event handling (e.g., GTK on desktop Linux).
-  /// When false, Dart-side key handling should be used (e.g., eLinux).
+  /// 返回 true，因为 Windows 通过其原生窗口路由按键事件。
   Future<bool> get hasNativeKeySupport async {
     _hasNativeKeySupport ??= await pluginChannel.invokeMethod<bool>('hasNativeKeySupport') ?? false;
     return _hasNativeKeySupport!;
@@ -65,7 +64,7 @@ class WebviewManager extends ValueNotifier<bool> {
         await pluginChannel.invokeMethod('init');
       }
       pluginChannel.setMethodCallHandler(methodCallhandler);
-      // Wait for the platform to complete initialization.
+      // 等待平台完成初始化。
       await Future.delayed(const Duration(milliseconds: 300));
       _creatingCompleter.complete();
       value = true;
@@ -199,7 +198,7 @@ class WebviewManager extends ValueNotifier<bool> {
   }
 
   Future<void> quit() async {
-    //only call this method when you want to quit the app
+    //仅当需要退出应用时才调用此方法
     assert(value);
     return pluginChannel.invokeMethod('quit');
   }

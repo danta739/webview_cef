@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -13,12 +11,9 @@ mixin WebeViewTextInput implements DeltaTextInputClient {
   TextInputConnection? _textInputConnection;
 
   attachTextInputClient() {
-    // On Windows the OS IME is driven by the native WM_IME pipeline (the Flutter
-    // text-input/delta path does not deliver composition for an OSR browser on
-    // Windows). Don't claim the IME here so the native path can own it.
-    if (Platform.isWindows) {
-      return;
-    }
+    // Windows 操作系统的 IME 由原生 WM_IME 管道驱动。Flutter 的
+    // text-input/delta 路径不会为 OSR 浏览器提供组合输入。
+    return;
     _textInputConnection?.close();
     _textInputConnection = TextInput.attach(
         this, const TextInputConfiguration(enableDeltaModel: true));
@@ -32,21 +27,16 @@ mixin WebeViewTextInput implements DeltaTextInputClient {
   }
 
   updateIMEComposionPosition(double x, double y, double height, Offset offset) {
-    // x/y are the caret position inside the webview (logical px), with y at the
-    // caret's bottom (the native side reports the element/character bottom);
-    // height is the line height. offset is the webview widget's global origin.
+    // x/y 是 webview 内的插入符号位置（逻辑像素），y 位于插入符号底部
+    // （原生侧报告元素/字符的底部）；height 是行高。offset 是 webview 部件的全局原点。
     final caretHeight = height > 0 ? height : 20.0;
-    // Place a transform whose origin is the caret's TOP in global coordinates,
-    // so a local-space caret rect maps back onto the input line.
+    // 放置一个以全局坐标中插入符号顶部为原点的变换，
+    // 以便本地坐标的插入符号矩形映射回输入行。
     final transform = Matrix4.translationValues(
         offset.dx + x, offset.dy + y - caretHeight, 0);
     _textInputConnection?.setEditableSizeAndTransform(
         Size(1, caretHeight), transform);
-    // macOS derives the IME candidate-window position from the composing/caret
-    // rect transformed by the editable transform above. Without a marked rect
-    // the engine has nothing to anchor to and parks the candidate window at the
-    // screen's bottom-left corner. Report the caret rect (in editable-local
-    // space) so the candidate window tracks the actual caret.
+    // 在可编辑本地坐标中报告插入符号矩形，以便候选窗口跟随实际插入符号。
     final caretRect = Rect.fromLTWH(0, 0, 1, caretHeight);
     _textInputConnection?.setComposingRect(caretRect);
     _textInputConnection?.setCaretRect(caretRect);

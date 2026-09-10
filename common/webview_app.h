@@ -9,7 +9,7 @@
 #include "webview_handler.h"
 #include "webview_js_handler.h"
 
-// Implement application-level callbacks for the browser process.
+// 为浏览器进程实现应用级别的回调。
 class WebviewApp : public CefApp, public CefBrowserProcessHandler, public CefRenderProcessHandler{
 public:
     WebviewApp(CefRefPtr<WebviewHandler> handler);
@@ -75,13 +75,13 @@ public:
         CefRefPtr<CefProcessMessage> message) override;
     
 private:
-    uint32_t                        m_uMode = 1;                        //process mode
-    bool                            m_bEnableGPU = false;               //enable gpu
-    CefString                       m_strFilterDomain;                  //insecure domain whitelist       
+    uint32_t                        m_uMode = 1;                        //进程模式
+    bool                            m_bEnableGPU = false;               //启用 gpu
+    CefString                       m_strFilterDomain;                  //不安全域名白名单
 
-    CefRefPtr<WebviewHandler>       m_handler;                          //webview handler for main process
-    std::shared_ptr<CefJSBridge>	m_render_js_bridge;                 //js bridge for render process
-    // Include the default reference counting implementation.
+    CefRefPtr<WebviewHandler>       m_handler;                          //主进程的 webview handler
+    std::shared_ptr<CefJSBridge>	m_render_js_bridge;                 //渲染进程的 js 桥接
+    // 包含默认的引用计数实现。
     IMPLEMENT_REFCOUNTING(WebviewApp);
 };
 

@@ -45,6 +45,8 @@ list(APPEND PLUGIN_SOURCES
   "webview_cef_gpu_texture.h"
   "${CMAKE_CURRENT_LIST_DIR}/../common/webview_app.cc"
   "${CMAKE_CURRENT_LIST_DIR}/../common/webview_app.h"
+  "${CMAKE_CURRENT_LIST_DIR}/../common/webview_app_views.cc"
+  "${CMAKE_CURRENT_LIST_DIR}/../common/webview_app_views.h"
   "${CMAKE_CURRENT_LIST_DIR}/../common/webview_handler.cc"
   "${CMAKE_CURRENT_LIST_DIR}/../common/webview_handler.h"
   "${CMAKE_CURRENT_LIST_DIR}/../common/webview_plugin.cc"

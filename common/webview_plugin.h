@@ -10,17 +10,16 @@ namespace webview_cef {
     class WebviewTexture{
     public:
         virtual ~WebviewTexture(){}
-        // Software off-screen frame (CPU BGRA buffer from CefRenderHandler::OnPaint).
+        // 软件离屏帧（来自 CefRenderHandler::OnPaint 的 CPU BGRA 缓冲区）。
         virtual void onFrame(const void* buffer, int width, int height){}
-        // GPU accelerated frame (shared texture handle from OnAcceleratedPaint).
+        // GPU 加速帧（来自 OnAcceleratedPaint 的共享纹理句柄）。
         virtual void onAcceleratedFrame(const void* sharedHandle, int width, int height, int format){}
         int64_t textureId = 0;
         bool isFocused = false;
-        // IME state for THIS browser (a single plugin can host several). The
-        // macOS key router consults the focused browser's state so one webview's
-        // editable focus / composition never gates another's keyboard input.
-        bool editableFocused = false;  // a web editable node is focused
-        bool composing = false;        // the OS IME has an active marked composition
+        // 此浏览器的 IME 状态（单个插件可以承载多个）。Windows 按键路由器会参考
+        // 焦点浏览器的状态，因此一个 webview 的可编辑焦点/组合不会影响其他 webview 的输入。
+        bool editableFocused = false;  // 焦点位于 web 可编辑节点
+        bool composing = false;        // 操作系统 IME 存在活动的标记组合
     };
     class WebviewPlugin {
     public:
@@ -33,24 +32,23 @@ namespace webview_cef {
         void setInvokeMethodFunc(std::function<void(std::string, WValue*)> func);
         void setCreateTextureFunc(std::function<std::shared_ptr<WebviewTexture>()> func);
         bool getAnyBrowserFocused();
-        // Drive one external BeginFrame for this plugin's browsers (GPU path).
+        // 为此插件的浏览器驱动一次外部 BeginFrame（GPU 路径）。
         void tickBeginFrame();
-        // IME state of the currently focused browser (see WebviewTexture). The
-        // macOS key router uses these to send text/composition keys to the OS
-        // IME and navigation/control keys to CEF. Per-browser, so one webview's
-        // composition never gates another's keyboard input.
+        // 当前焦点浏览器的 IME 状态（参见 WebviewTexture）。Windows 按键路由器
+        // 使用这些状态将组合键发送给操作系统 IME，将导航/控制键发送给 CEF。
+        // 状态按浏览器保留，因此一个 webview 的组合不会影响其他 webview 的键盘输入。
         bool isEditableFocused();
         bool isComposing();
 
-        // Native IME pipeline forwarders (driven by the Windows WM_IME_* handler).
+        // 原生 IME 管道转发器（由 Windows WM_IME_* 处理器驱动）。
         void imeSetCompositionNative(const std::wstring& text, int cursor);
         void imeCommitTextNative(const std::wstring& text);
         void imeFinishCompositionNative();
 
     private :
-        // Resolve the browserId whose renderer currently has focus, or -1.
+        // 解析当前具有焦点的渲染进程所属的 browserId，若无则返回 -1。
         int focusedBrowserId();
-        // Set the composing flag for a specific browser (no-op if unknown).
+        // 为特定浏览器设置 composing 标志（未知则为 no-op）。
         void setComposingForBrowser(int browserId, bool composing);
         int cursorAction(WValue *args, std::string name);
     	std::function<void(std::string, WValue*)> m_invokeFunc;
@@ -64,14 +62,6 @@ namespace webview_cef {
     int initCEFProcesses(CefMainArgs args);
     int initCEFProcesses();
     void startCEF();
-#ifdef OS_MAC
-    // macOS multi-process: the platform layer (Obj-C) resolves these from the
-    // app bundle and sets them before startCEF() so CEF can launch the bundled
-    // helper sub-processes. Must be called before startCEF().
-    void setMacCEFPaths(const std::string& subprocessPath,
-                        const std::string& frameworkDirPath,
-                        const std::string& mainBundlePath);
-#endif
     void doMessageLoopWork();
     void SwapBufferFromBgraToRgba(void* _dest, const void* _src, int width, int height);
     void stopCEF();

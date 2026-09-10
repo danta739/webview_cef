@@ -22,12 +22,17 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void initState() {
-    var injectUserScripts = InjectUserScripts();
+    //创建js脚本
+    InjectUserScripts injectUserScripts = InjectUserScripts();
+    // 注入一段 JS 脚本示例（在控制台打印日志）
     injectUserScripts.add(UserScript("console.log('injectScript_in_LoadStart')",
         ScriptInjectTime.LOAD_START));
     injectUserScripts.add(UserScript(
         "console.log('injectScript_in_LoadEnd')", ScriptInjectTime.LOAD_END));
 
+    // 通过 WebviewManager 创建一个 WebView 实例
+    // loading 参数指定 WebView 尚未初始化完成时显示的占位组件
+    // injectUserScripts 参数传入需要注入的用户脚本配置
     _controller = WebviewManager().createWebView(
         loading: const Text("not initialized"),
         injectUserScripts: injectUserScripts);
@@ -42,12 +47,13 @@ class _MyAppState extends State<MyApp> {
     super.dispose();
   }
 
-  // Platform messages are asynchronous, so we initialize in an async method.
+  // 平台消息是异步的，所以我们在异步方法中进行初始化。
   Future<void> initPlatformState() async {
-    await WebviewManager().initialize(userAgent: "test/userAgent");
-    String url = "www.baidu.com";
+    // await WebviewManager().initialize(userAgent: "test/userAgent");
+    await WebviewManager().initialize(userAgent: "video_test");
+    String url = "https://downloadcdn.oopz.cn/video_test_20260908/index3.html?debug=true";
     _textController.text = url;
-    //unified interface for all platforms set user agent
+    //为所有平台设置用户代理的统一接口，处理回调
     _controller.setWebviewListener(WebviewEventsListener(
       onTitleChanged: (t) {
         setState(() {
@@ -57,6 +63,7 @@ class _MyAppState extends State<MyApp> {
       onUrlChanged: (url) {
         _textController.text = url;
         final Set<JavascriptChannel> jsChannels = {
+          // 创建一个名为 'Print' 的 JS 通道
           JavascriptChannel(
               name: 'Print',
               onMessageReceived: (JavascriptMessage message) {
@@ -68,22 +75,23 @@ class _MyAppState extends State<MyApp> {
                     message.frameId);
               }),
         };
-        //normal JavaScriptChannels
-        _controller.setJavaScriptChannels(jsChannels);
-        //also you can build your own jssdk by execute JavaScript code to CEF
-        _controller.executeJavaScript("function abc(e){return 'abc:'+ e}");
-        _controller
-            .evaluateJavascript("abc('test')")
-            .then((value) => debugPrint(value));
+        ///将 JS 通道注册到 WebView 示例：
+         // 将 JS 通道注册到 WebView 控制器
+        // _controller.setJavaScriptChannels(jsChannels);
+        // //向 CEF 执行 JavaScript 代码来构建自己的 jssdk
+        // _controller.executeJavaScript("function abc(e){return 'abc:'+ e}");
+        // _controller
+        //     .evaluateJavascript("abc('test')")
+        //     .then((value) => debugPrint(value));
       },
-      onLoadStart: (controller, url) {
-        debugPrint("onLoadStart => $url");
-      },
-      onLoadEnd: (controller, url) {
-        debugPrint("onLoadEnd => $url");
-      },
+      // onLoadStart: (controller, url) {
+      //   debugPrint("onLoadStart => $url");
+      // },
+      // onLoadEnd: (controller, url) {
+      //   debugPrint("onLoadEnd => $url");
+      // },
     ));
-
+    ///初始化CEF，加载页面
     await _controller.initialize(_textController.text);
 
     // If the widget was removed from the tree while the asynchronous platform

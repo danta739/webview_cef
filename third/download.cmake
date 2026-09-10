@@ -4,28 +4,11 @@
 set(CEF_CDN "https://cef-builds.spotifycdn.com")
 set(CEF_VERSION "149.0.4+g2f1bfd8+chromium-149.0.7827.156")
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    message(WARNING "current system is Linux")
-        if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" OR
-           CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR
-           CMAKE_CXX_COMPILER_TARGET MATCHES "aarch64" OR
-           CMAKE_CXX_COMPILER_TARGET MATCHES "arm64")
-        set(cef_prebuilt_version "cef_binary_${CEF_VERSION}_linuxarm64.tar.bz2")
-    else()
-        set(cef_prebuilt_version "cef_binary_${CEF_VERSION}_linux64.tar.bz2")
-    endif()
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     message(WARNING "current system is Windows")
     # Use the official CEF standard distribution and build libcef_dll_wrapper
-    # from source (see windows/CMakeLists.txt), the same way Linux does.
+    # from source (see windows/CMakeLists.txt).
     set(cef_prebuilt_version "cef_binary_${CEF_VERSION}_windows64.tar.bz2")
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    message(WARNING "current system is macOS")
-    if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64")
-        set(cef_prebuilt_version "cef_binary_${CEF_VERSION}_macosarm64.tar.bz2")
-    else()
-        set(cef_prebuilt_version "cef_binary_${CEF_VERSION}_macosx64.tar.bz2")
-    endif()
 endif()
 
 # The CDN path requires '+' to be percent-encoded as %2B.
@@ -91,14 +74,6 @@ function(prepare_prebuilt_files filepath)
         download_file(${cef_prebuilt_path} ${CMAKE_CURRENT_SOURCE_DIR}/prebuilt.zip)
         file(MAKE_DIRECTORY ${filepath})
         extract_file(${CMAKE_CURRENT_SOURCE_DIR}/prebuilt.zip ${filepath})
-
-        ## Needed for making it run on arm64 Linux (makes it check for arm64 or aarch64 instead of just arm64)
-        if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-            execute_process(
-                COMMAND sed -i "s/\"\\\${CMAKE_HOST_SYSTEM_PROCESSOR}\" STREQUAL \"arm64\"/(\"\\\${CMAKE_HOST_SYSTEM_PROCESSOR}\" STREQUAL \"arm64\" OR \"\\\${CMAKE_HOST_SYSTEM_PROCESSOR}\" STREQUAL \"aarch64\")/" ${filepath}/cmake/cef_variables.cmake
-                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            )
-        endif()
 
         file(WRITE "${filepath}/version.txt" "${cef_prebuilt_version}")
         file(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/prebuilt.zip)

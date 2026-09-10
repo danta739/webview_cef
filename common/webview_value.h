@@ -10,11 +10,11 @@ extern "C" {
 #endif
 
 /**
- * @brief The type of a value.
- * 
- * the values are represented as a follows:
- * 
- * 
+ * @brief 值的类型。
+ *
+ * 值表示如下：
+ *
+ *
  */
 
 typedef struct webview_value WValue;

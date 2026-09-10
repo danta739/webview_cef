@@ -4,7 +4,7 @@
 std::atomic_long s_nReqID {1001};
 
 // ConvertCefV8ValueToJSValue
-// 功能：将 CEF 转换为 JSV结构体
+// 功能：将 CEF 转换为 JSValue 结构体
 // 参数：value - CEF 的 V8 值对象，代表 JavaScript 中的一个值
 // 返回：转换后的 JSValue 对象
 
@@ -39,7 +39,7 @@ JSValue ConvertCefV8ValueToJSValue(CefRefPtr<CefV8Value> value) {
 // 功能：CEF 的 Js 调用入口函数
 //       当 js 侧调用 NativeHost 对象的方法时，此函数会被触发（两种跨进程请求方式：jscmd，StartRequest）
 // 参数：
-//   name     - 被调用的 Js函数名
+//   name     - 被调用的 JS 函数名
 //   object   - 调用该函数的 JS 对象
 //   arguments - 传入的参数列表
 //   retval   - 返回值（输出参数）
@@ -58,7 +58,7 @@ bool CefJSHandler::Execute(const CefString& name,
             exception = "Invalid arguments.";
             return true;
         }
-        //the first param is function name,the last param is callback function,and allow most 2 custom params between them.
+        //第一个参数是函数名，最后一个参数是回调函数，中间最多允许 2 个自定义参数。
         CefString function_name = arguments[0]->GetStringValue();
         CefString params = "";
         CefRefPtr<CefV8Value> callback;
@@ -255,8 +255,9 @@ bool CefJSBridge::EvaluateCallback(const CefString& callbackId, const JSValue& r
                     break;
                 }
                 default:
-                    // For avoiding values like
+                    // 为避免类似
                     // error: enumeration value 'UNKNOWN' not handled in switch [-Werror,-Wswitch]
+                    // 的值
                     break;
             }
 
@@ -419,16 +420,16 @@ bool CefJSBridge::ExecuteJSCallbackFunc(int callbackId, bool error, const CefStr
 
                 CefV8ValueList arguments;
 
-                //the first param marks whether the function execution result was successful
+                //第一个参数标记函数执行结果是否成功
                 arguments.push_back(CefV8Value::CreateBool(error));
 
-                // the second prarm take the return data
+                // 第二个参数接收返回数据
                 arguments.push_back(CefV8Value::CreateString(result));
                 if (rawdata.get()) {
                     arguments.push_back(rawdata);
                 }
 
-                // call js function
+                // 调用 js 函数
                 CefRefPtr<CefV8Value> retval = callback->ExecuteFunction(nullptr, arguments);
                 context->Exit();
                 render_callback_.erase(callbackId);

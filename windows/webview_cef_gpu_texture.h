@@ -12,23 +12,20 @@
 #include <mutex>
 
 namespace webview_cef {
-    // Zero-copy GPU renderer.
+    // 零拷贝 GPU 渲染器。
     //
-    // CEF delivers each off-screen frame as a Direct3D 11 shared texture through
-    // CefRenderHandler::OnAcceleratedPaint. That texture is owned by an internal
-    // pool and is only valid for the duration of the callback, so we open it on
-    // our own D3D11 device and CopyResource it into a "bridge" texture that we
-    // own. The bridge texture is exposed to Flutter/ANGLE as a DXGI shared
-    // handle (kFlutterDesktopGpuSurfaceTypeDxgiSharedHandle); ANGLE opens that
-    // handle on its own device, so the browser's GPU output reaches the Flutter
-    // compositor without ever touching the CPU (no BGRA->RGBA swizzle, no
-    // CPU->GPU upload).
+    // CEF 通过 CefRenderHandler::OnAcceleratedPaint 将每个离屏帧作为 Direct3D 11
+    // 共享纹理传递。该纹理由内部池拥有，仅在回调期间有效，因此我们在自己的 D3D11
+    // 设备上打开它，并将其 CopyResource 到我们拥有的"桥接"纹理中。桥接纹理作为
+    // DXGI 共享句柄 (kFlutterDesktopGpuSurfaceTypeDxgiSharedHandle) 暴露给 Flutter/ANGLE；
+    // ANGLE 在自己的设备上打开该句柄，因此浏览器的 GPU 输出无需经过 CPU 即可到达
+    // Flutter 合成器（无需 BGRA->RGBA 转换，无需 CPU->GPU 上传）。
     class WebviewGpuTextureRenderer : public WebviewTexture {
     public:
         explicit WebviewGpuTextureRenderer(FlutterDesktopTextureRegistrarRef registrar);
         ~WebviewGpuTextureRenderer() override;
 
-        // True once a D3D11 device was created and the texture was registered.
+        // 一旦创建 D3D11 设备并注册纹理，返回 true。
         bool isValid() const { return device_ && textureId != 0; }
 
         void onAcceleratedFrame(const void* sharedHandle, int width, int height, int format) override;
@@ -50,9 +47,9 @@ namespace webview_cef {
         Microsoft::WRL::ComPtr<ID3D11DeviceContext> context_;
         ///桥接纹理
         Microsoft::WRL::ComPtr<ID3D11Texture2D> bridge_tex_;
-        // Legacy DXGI share handle of |bridge_tex_| handed to Flutter/ANGLE.
-        // Owned by the texture; not closed explicitly.
-        ///桥接纹理的共享句柄        
+        // 传递给 Flutter/ANGLE 的 |bridge_tex_| 的旧版 DXGI 共享句柄。
+        // 由纹理拥有；不显式关闭。
+        ///桥接纹理的共享句柄
         HANDLE shared_handle_ = nullptr;
         ///当前桥接纹理的宽高
         UINT tex_width_ = 0;

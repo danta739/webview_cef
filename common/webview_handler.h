@@ -14,11 +14,11 @@
 #include "webview_cookieVisitor.h"
 
 #define ColorUNDERLINE \
-  0xFF000000  // Black SkColor value for underline,
-              // same as Blink.
+  0xFF000000  // 用于下划线的黑色 SkColor 值，
+              // 与 Blink 相同。
 #define ColorBKCOLOR \
-  0x00000000  // White SkColor value for background,
-              // same as Blink.
+  0x00000000  // 用于背景的白色 SkColor 值，
+              // 与 Blink 相同。
 
 struct browser_info{
     CefRefPtr<CefBrowser> browser;
@@ -28,10 +28,9 @@ struct browser_info{
     bool is_dragging = false;
     CefRect prev_ime_position = CefRect();
     bool is_ime_commit = false;
-    // Focus the host requested (via setClientFocus) and whether it has been
-    // re-asserted after the first rendered frame. With external_begin_frame the
-    // browser isn't input/focus-ready until frames flow, so a SetFocus issued
-    // right after creation is lost; we re-apply it once the first frame lands.
+    // 宿主请求的焦点（通过 setClientFocus），以及在第一帧渲染后是否已重新声明。
+    // 使用 external_begin_frame 时，浏览器在帧流通之前不会处于输入/焦点就绪状态，
+    // 因此在创建后立即发出的 SetFocus 会丢失；我们在第一帧落地后重新应用它。
     bool wants_focus = false;
     bool focus_reasserted = false;
 };
@@ -43,13 +42,12 @@ public CefFocusHandler,
 public CefLoadHandler,
 public CefRenderHandler{
 public:
-    //Paint callback (software off-screen rendering)
+    //绘制回调（软件离屏渲染）
     std::function<void(int browserId, const void* buffer, int32_t width, int32_t height)> onPaintCallback;
-    //Accelerated paint callback (GPU shared texture). On Windows |sharedHandle|
-    //is the OnAcceleratedPaint shared-texture HANDLE; |format| is a
-    //cef_color_type_t. Only fired when shared textures are enabled.
+    //加速绘制回调（GPU 共享纹理）。在 Windows 上 |sharedHandle| 是 OnAcceleratedPaint
+    //的共享纹理 HANDLE；|format| 是 cef_color_type_t。仅在启用共享纹理时触发。
     std::function<void(int browserId, const void* sharedHandle, int32_t width, int32_t height, int32_t format)> onAcceleratedPaintCallback;
-    //cef message event
+    //cef 消息事件
     std::function<void(int browserId, std::string url)> onUrlChangedEvent;
     std::function<void(int browserId, std::string title)> onTitleChangedEvent;
     std::function<void(int browserId, int type)>onCursorChangedEvent;
@@ -57,7 +55,7 @@ public:
     std::function<void(int browserId, int level, std::string message, std::string source, int line)>onConsoleMessageEvent;
     std::function<void(int browserId, bool editable)> onFocusedNodeChangeMessage;
     std::function<void(int browserId, int32_t x, int32_t y, int32_t height)> onImeCompositionRangeChangedMessage;
-    //webpage message
+    //网页消息
     std::function<void(std::string, std::string, std::string, int browserId, std::string)> onJavaScriptChannelMessage;
     std::function<void(int browserId, std::string url)> onLoadStart;
     std::function<void(int browserId, std::string url)> onLoadEnd;
@@ -149,19 +147,18 @@ public:
                                int y) override;
     virtual void OnImeCompositionRangeChanged(CefRefPtr<CefBrowser> browser,const CefRange& selection_range,const CefRenderHandler::RectList& character_bounds) override;
 
-    // Request that all existing browser windows close.
+    // 请求关闭所有现有的浏览器窗口。
     void CloseAllBrowsers(bool force_close);
 
     void closeBrowser(int browserId);
     void createBrowser(std::string url, std::function<void(int)> callback);
 
-    // Drives one external BeginFrame for every live browser (GPU path only).
-    // Marshals to the CEF UI thread; safe to call from any thread.
+    // 为每个活动浏览器驱动一次外部 BeginFrame（仅限 GPU 路径）。
+    // 编组到 CEF UI 线程；可从任何线程调用。
     void sendExternalBeginFrame();
 
-    // Diagnostic (GPU path): warn once if no accelerated-paint frame has arrived
-    // shortly after a browser is created — the symptom of an unavailable GPU
-    // shared texture, which would otherwise be a silent black webview.
+    // 诊断（GPU 路径）：如果浏览器创建后短时间内没有加速绘制帧到达则警告一次 —
+    // 这是 GPU 共享纹理不可用的症状，否则将导致 webview 静默变黑。
     void warnIfNoAcceleratedFrame();
 
     void sendScrollEvent(int browserId, int x, int y, int deltaX, int deltaY);
@@ -179,8 +176,8 @@ public:
     void imeCommitText(int browserId, std::string text);
     void setClientFocus(int browserId, bool focus);
 
-    // Native IME pipeline (Windows WM_IME_*): operate on the currently focused
-    // browser. |text| is UTF-16 read from the IMM composition string.
+    // 原生 IME 管道（Windows WM_IME_*）：对当前获得焦点的浏览器进行操作。
+    // |text| 是从 IMM 组合字符串读取的 UTF-16。
     CefRefPtr<CefBrowser> getFocusedBrowser();
     void imeSetCompositionNative(const std::wstring& text, int cursor);
     void imeCommitTextNative(const std::wstring& text);
@@ -196,20 +193,19 @@ public:
     void executeJavaScript(int browserId, const std::string code, std::function<void(CefRefPtr<CefValue>)> callback = nullptr);
     
 private:
-    // List of existing browser windows. Only accessed on the CEF UI thread.
+    // 现有浏览器窗口列表。仅在 CEF UI 线程上访问。
     std::unordered_map<int, browser_info> browser_map_;
 
     std::unordered_map<std::string, std::function<void(CefRefPtr<CefValue>)>> js_callbacks_;
 
 #ifdef WEBVIEW_CEF_GPU_TEXTURE
-    // GPU diagnostic state: whether any accelerated-paint frame has arrived, and
-    // whether the "no GPU frame" warning was already logged (log it once).
-    // Only declared on GPU builds so non-GPU builds don't see unused fields.
+    // GPU 诊断状态：是否有任何加速绘制帧到达，以及"无 GPU 帧"警告是否
+    // 已经记录（仅记录一次）。仅在 GPU 构建中声明，以避免非 GPU 构建中出现未使用字段。
     bool received_accelerated_frame_ = false;
     bool gpu_warning_logged_ = false;
 #endif
 
-    // Include the default reference counting implementation.
+    // 包含默认的引用计数实现。
     IMPLEMENT_REFCOUNTING(WebviewHandler);
 
 };
