@@ -141,34 +141,34 @@ class _MyAppState extends State<MyApp> {
                   child: const Icon(Icons.arrow_right),
                 ),
               ),
-              SizedBox(
-                height: 48,
-                child: MaterialButton(
-                  onPressed: () {
-                    _controller.openDevTools();
-                  },
-                  child: const Icon(Icons.developer_mode),
-                ),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _textController,
-                  onSubmitted: (url) {
-                    _controller.loadUrl(url);
-                    WebviewManager().visitAllCookies().then((value) {
-                      allCookies = Map.of(value);
-                      if (url == "baidu.com") {
-                        if (!allCookies.containsKey('.$url') ||
-                            !Map.of(allCookies['.$url']).containsKey('test')) {
-                          WebviewManager().setCookie(url, 'test', 'test123');
-                        } else {
-                          WebviewManager().deleteCookie(url, 'test');
-                        }
-                      }
-                    });
-                  },
-                ),
-              ),
+              // SizedBox(
+              //   height: 48,
+              //   child: MaterialButton(
+              //     onPressed: () {
+              //       _controller.openDevTools();
+              //     },
+              //     child: const Icon(Icons.developer_mode),
+              //   ),
+              // ),
+              // Expanded(
+              //   child: TextField(
+              //     controller: _textController,
+              //     onSubmitted: (url) {
+              //       _controller.loadUrl(url);
+              //       WebviewManager().visitAllCookies().then((value) {
+              //         allCookies = Map.of(value);
+              //         if (url == "baidu.com") {
+              //           if (!allCookies.containsKey('.$url') ||
+              //               !Map.of(allCookies['.$url']).containsKey('test')) {
+              //             WebviewManager().setCookie(url, 'test', 'test123');
+              //           } else {
+              //             WebviewManager().deleteCookie(url, 'test');
+              //           }
+              //         }
+              //       });
+              //     },
+              //   ),
+              // ),
             ],
           ),
           Expanded(
