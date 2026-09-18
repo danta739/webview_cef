@@ -1,32 +1,46 @@
-#ifndef WEBVIEW_CEF_COOKIE_VISITOR_H_
-#define WEBVIEW_CEF_COOKIE_VISITOR_H_
+// webview_cookieVisitor.h — CEF Cookie 访问器。
 
-#include "include/cef_base.h"
-#include "include/cef_cookie.h"
-#include <mutex>
-#include <map>
+#ifndef WEBVIEW_COOKIE_VISITOR_H
+#define WEBVIEW_COOKIE_VISITOR_H
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#include <string>
 #include <functional>
 
-class WebviewCookieVisitor : public CefCookieVisitor
-{
-public:
-	WebviewCookieVisitor();
-	~WebviewCookieVisitor();
+#include "include/cef_cookie.h"
 
-	void setOnVisitComplete(std::function<void(std::map<std::string, std::map<std::string, std::string>>)> complete);
+namespace webview_cef {
 
-	//CefCookieVisitor
-	bool Visit(const CefCookie& cookie, int count, int total, bool& deleteCookie) override;
+class WebviewCookieVisitor : public CefCookieVisitor {
+ public:
+    struct Entry {
+        std::string name;
+        std::string value;
+        std::string domain;
+        std::string path;
+        bool secure = false;
+        bool httponly = false;
+        bool has_expires = false;
+    };
 
-	std::map<std::string, std::map<std::string, std::string>> getVisitedCookies();
+    using Callback = std::function<void(bool has_more, const Entry& e)>;
 
-    // 包含默认的引用计数实现。
+    explicit WebviewCookieVisitor(Callback cb) : cb_(std::move(cb)) {}
+    ~WebviewCookieVisitor() override = default;
+
+    bool Visit(const CefCookie& cookie,
+               int count,
+               int total,
+               bool& deleteCookie) override;
+
+ private:
+    Callback cb_;
     IMPLEMENT_REFCOUNTING(WebviewCookieVisitor);
-
-private:
-	std::function<void(std::map<std::string, std::map<std::string, std::string>>)> onVisitComplete;
-	std::vector<CefCookie> m_vecAllCookies;
-	std::mutex m_mutexCookieVector;
 };
 
-#endif  // WEBVIEW_CEF_COOKIE_VISITOR_H_
+}  // namespace webview_cef
+
+#endif  // WEBVIEW_COOKIE_VISITOR_H

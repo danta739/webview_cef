@@ -1,3 +1,9 @@
+// example/lib/main.dart — OSR + Windowed 双模式示例。
+//
+// 启动后默认走 OSR 离屏渲染(WebviewManager + WebViewController)。
+// 通过 Windowed 切换按钮可以开关屏上渲染模式(在 Flutter 主窗口上叠加
+// CEF 子 HWND)。
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -20,19 +26,24 @@ class _MyAppState extends State<MyApp> {
   String title = "";
   Map allCookies = {};
 
+  // 屏上渲染模式状态。
+  bool _useWindowed = false;
+  bool _windowedReady = false;
+  int? _windowedBrowserId;
+
+  // 屏上渲染初始 rect。实际项目中应根据窗口 resize / 布局动态调整。
+  static const WindowedRect _kInitialRect =
+      WindowedRect(x: 100, y: 100, width: 1024, height: 720);
+
   @override
   void initState() {
-    //创建js脚本
     InjectUserScripts injectUserScripts = InjectUserScripts();
-    // 注入一段 JS 脚本示例（在控制台打印日志）
-    injectUserScripts.add(UserScript("console.log('injectScript_in_LoadStart')",
+    injectUserScripts.add(UserScript(
+        "console.log('injectScript_in_LoadStart')",
         ScriptInjectTime.LOAD_START));
     injectUserScripts.add(UserScript(
         "console.log('injectScript_in_LoadEnd')", ScriptInjectTime.LOAD_END));
 
-    // 通过 WebviewManager 创建一个 WebView 实例
-    // loading 参数指定 WebView 尚未初始化完成时显示的占位组件
-    // injectUserScripts 参数传入需要注入的用户脚本配置
     _controller = WebviewManager().createWebView(
         loading: const Text("not initialized"),
         injectUserScripts: injectUserScripts);
@@ -42,18 +53,60 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    if (_windowedReady) {
+      WindowedWebviewManager.instance.close();
+    }
     _controller.dispose();
     WebviewManager().quit();
     super.dispose();
   }
 
-  // 平台消息是异步的，所以我们在异步方法中进行初始化。
+  Future<void> _enableWindowedMode(String url) async {
+    if (_windowedReady) return;
+    try {
+      _windowedBrowserId = await WindowedWebviewManager.instance.create(
+        url: url,
+        rect: _kInitialRect,
+      );
+      setState(() {
+        _windowedReady = true;
+        _useWindowed = true;
+      });
+      debugPrint("Windowed webview created: id=$_windowedBrowserId");
+    } catch (e) {
+      debugPrint("Failed to create windowed webview: $e");
+    }
+  }
+
+  Future<void> _disableWindowedMode() async {
+    if (!_windowedReady) return;
+    try {
+      await WindowedWebviewManager.instance.close();
+    } catch (e) {
+      debugPrint("Failed to close windowed webview: $e");
+    }
+    setState(() {
+      _windowedReady = false;
+      _windowedBrowserId = null;
+      _useWindowed = false;
+    });
+  }
+
+  Future<void> _updateWindowedRect(WindowedRect rect) async {
+    if (!_windowedReady) return;
+    try {
+      await WindowedWebviewManager.instance.updateRect(rect);
+    } catch (e) {
+      debugPrint("Failed to update windowed rect: $e");
+    }
+  }
+
   Future<void> initPlatformState() async {
-    // await WebviewManager().initialize(userAgent: "test/userAgent");
-    await WebviewManager().initialize(userAgent: "video_test");
-    String url = "https://downloadcdn.oopz.cn/video_test_20260908/index3.html?debug=true";
+    await WebviewManager().initialize(userAgent: "test/userAgent");
+    String url =
+        "https://downloadcdn.oopz.cn/video_test_20260908/index13.html?debug=true";
     _textController.text = url;
-    //为所有平台设置用户代理的统一接口，处理回调
+
     _controller.setWebviewListener(WebviewEventsListener(
       onTitleChanged: (t) {
         setState(() {
@@ -62,41 +115,14 @@ class _MyAppState extends State<MyApp> {
       },
       onUrlChanged: (url) {
         _textController.text = url;
-        final Set<JavascriptChannel> jsChannels = {
-          // 创建一个名为 'Print' 的 JS 通道
-          JavascriptChannel(
-              name: 'Print',
-              onMessageReceived: (JavascriptMessage message) {
-                debugPrint(message.message);
-                _controller.sendJavaScriptChannelCallBack(
-                    false,
-                    "{'code':'200','message':'print succeed!'}",
-                    message.callbackId,
-                    message.frameId);
-              }),
-        };
-        ///将 JS 通道注册到 WebView 示例：
-         // 将 JS 通道注册到 WebView 控制器
-        // _controller.setJavaScriptChannels(jsChannels);
-        // //向 CEF 执行 JavaScript 代码来构建自己的 jssdk
-        // _controller.executeJavaScript("function abc(e){return 'abc:'+ e}");
-        // _controller
-        //     .evaluateJavascript("abc('test')")
-        //     .then((value) => debugPrint(value));
       },
-      // onLoadStart: (controller, url) {
-      //   debugPrint("onLoadStart => $url");
-      // },
-      // onLoadEnd: (controller, url) {
-      //   debugPrint("onLoadEnd => $url");
-      // },
     ));
-    ///初始化CEF，加载页面
+
     await _controller.initialize(_textController.text);
 
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
+    final bound = await WindowedWebviewManager.instance.isBound();
+    debugPrint("WindowedWebviewManager bound = $bound");
+
     if (!mounted) return;
   }
 
@@ -106,86 +132,132 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true),
       home: Scaffold(
-          body: Column(
-        children: [
-          SizedBox(
-            height: 20,
-            child: Text(title),
-          ),
-          Row(
-            children: [
-              SizedBox(
-                height: 48,
-                child: MaterialButton(
-                  onPressed: () {
-                    _controller.reload();
-                  },
-                  child: const Icon(Icons.refresh),
+        body: Column(
+          children: [
+            SizedBox(height: 20, child: Text(title)),
+            Row(
+              children: [
+                SizedBox(
+                  height: 48,
+                  child: MaterialButton(
+                    onPressed: () {
+                      _controller.reload();
+                    },
+                    child: const Icon(Icons.refresh),
+                  ),
                 ),
-              ),
-              SizedBox(
-                height: 48,
-                child: MaterialButton(
-                  onPressed: () {
-                    _controller.goBack();
-                  },
-                  child: const Icon(Icons.arrow_left),
+                SizedBox(
+                  height: 48,
+                  child: MaterialButton(
+                    onPressed: () {
+                      _controller.goBack();
+                    },
+                    child: const Icon(Icons.arrow_left),
+                  ),
                 ),
-              ),
-              SizedBox(
-                height: 48,
-                child: MaterialButton(
-                  onPressed: () {
-                    _controller.goForward();
-                  },
-                  child: const Icon(Icons.arrow_right),
+                SizedBox(
+                  height: 48,
+                  child: MaterialButton(
+                    onPressed: () {
+                      _controller.goForward();
+                    },
+                    child: const Icon(Icons.arrow_right),
+                  ),
                 ),
-              ),
-              // SizedBox(
-              //   height: 48,
-              //   child: MaterialButton(
-              //     onPressed: () {
-              //       _controller.openDevTools();
-              //     },
-              //     child: const Icon(Icons.developer_mode),
-              //   ),
-              // ),
-              // Expanded(
-              //   child: TextField(
-              //     controller: _textController,
-              //     onSubmitted: (url) {
-              //       _controller.loadUrl(url);
-              //       WebviewManager().visitAllCookies().then((value) {
-              //         allCookies = Map.of(value);
-              //         if (url == "baidu.com") {
-              //           if (!allCookies.containsKey('.$url') ||
-              //               !Map.of(allCookies['.$url']).containsKey('test')) {
-              //             WebviewManager().setCookie(url, 'test', 'test123');
-              //           } else {
-              //             WebviewManager().deleteCookie(url, 'test');
-              //           }
-              //         }
-              //       });
-              //     },
-              //   ),
-              // ),
-            ],
-          ),
-          Expanded(
+                SizedBox(
+                  height: 48,
+                  child: MaterialButton(
+                    onPressed: () async {
+                      final url = _textController.text.isNotEmpty
+                          ? _textController.text
+                          : "https://downloadcdn.oopz.cn/video_test_20260908/index13.html?debug=true";
+                      if (_windowedReady) {
+                        await _disableWindowedMode();
+                      } else {
+                        await _enableWindowedMode(url);
+                      }
+                    },
+                    child: Icon(_windowedReady
+                        ? Icons.layers_clear
+                        : Icons.open_in_new),
+                  ),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _textController,
+                    onSubmitted: (url) {
+                      _controller.loadUrl(url);
+                    },
+                  ),
+                ),
+              ],
+            ),
+            Expanded(
               child: Row(
-            children: [
-              ValueListenableBuilder(
-                valueListenable: _controller,
-                builder: (context, value, child) {
-                  return _controller.value
-                      ? Expanded(child: _controller.webviewWidget)
-                      : _controller.loadingWidget;
-                },
+                children: [
+                  if (!_useWindowed)
+                    ValueListenableBuilder(
+                      valueListenable: _controller,
+                      builder: (context, value, child) {
+                        return _controller.value
+                            ? Expanded(child: _controller.webviewWidget)
+                            : _controller.loadingWidget;
+                      },
+                    )
+                  else
+                    Expanded(
+                      child: Container(
+                        color: Colors.grey.shade900,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.open_in_new,
+                                  size: 64, color: Colors.white70),
+                              const SizedBox(height: 12),
+                              const Text("Windowed 模式已启用",
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 18)),
+                              const SizedBox(height: 4),
+                              Text(
+                                "CEF 子窗口已叠加在主窗口 (${_kInitialRect.width}×${_kInitialRect.height} @ ${_kInitialRect.x},${_kInitialRect.y})",
+                                style: const TextStyle(
+                                    color: Colors.white60, fontSize: 12),
+                              ),
+                              if (_windowedBrowserId != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  "browserId = $_windowedBrowserId",
+                                  style: const TextStyle(
+                                      color: Colors.white38, fontSize: 11),
+                                ),
+                              ],
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: () => _updateWindowedRect(
+                                  const WindowedRect(
+                                      x: 200, y: 150, width: 800, height: 600),
+                                ),
+                                icon: const Icon(Icons.aspect_ratio),
+                                label: const Text("调整到 (200,150) 800×600"),
+                              ),
+                              const SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: () => _updateWindowedRect(_kInitialRect),
+                                icon: const Icon(Icons.refresh),
+                                label: const Text("还原初始位置"),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ],
-          ))
-        ],
-      )),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

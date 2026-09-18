@@ -35,6 +35,15 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
+# webview_cef C API 头(供 generated_plugin_registrant.cc / main.cpp 使用)。
+# FLUTTER_WEBVIEW_CEF_ROOT 是显式环境变量;若未设置,fallback 到 plugin
+# symlink 上一级(repo 根)。
+set(_WEBVIEW_CEF_ROOT "$ENV{FLUTTER_WEBVIEW_CEF_ROOT}")
+if(NOT _WEBVIEW_CEF_ROOT)
+  set(_WEBVIEW_CEF_ROOT "${CMAKE_SOURCE_DIR}/../..")
+endif()
+get_filename_component(_WEBVIEW_CEF_ROOT "${_WEBVIEW_CEF_ROOT}" ABSOLUTE)
+target_include_directories(${BINARY_NAME} PRIVATE "${_WEBVIEW_CEF_ROOT}/windows/include")
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)

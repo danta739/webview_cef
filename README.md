@@ -13,6 +13,7 @@ Flutter Windows WebView plugin based on [CEF](https://bitbucket.org/chromiumembe
 - Navigation, title/URL/load events, mouse input and DevTools.
 - JavaScript evaluation and JavaScript-to-Dart channels.
 - Cookie management and document user-script injection.
+- **Windowed (on-screen) rendering mode** — overlay a real CEF child window on the Flutter window. See [WINDOWED_RENDERING.md](WINDOWED_RENDERING.md) for details.
 
 ## Requirements
 

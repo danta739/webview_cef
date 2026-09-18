@@ -13,6 +13,7 @@
 - 支持导航、标题/URL/加载事件、鼠标输入和 DevTools。
 - 支持 Dart 执行 JavaScript、JavaScript 调用 Dart。
 - 支持 Cookie 管理和文档用户脚本注入。
+- **屏上渲染（Windowed Mode）** —— 在 Flutter 主窗口上叠加一个真实的 CEF 子窗口。详见 [WINDOWED_RENDERING.zh-CN.md](WINDOWED_RENDERING.zh-CN.md)。
 
 ## 环境要求
 

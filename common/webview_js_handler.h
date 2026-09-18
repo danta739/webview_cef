@@ -1,68 +1,56 @@
-#pragma once
-#ifndef WEBVIEW_CEF_JS_HANDLER_H_
-#define WEBVIEW_CEF_JS_HANDLER_H_
-#include "include/cef_base.h"
-#include "include/cef_app.h"
+// webview_js_handler.h — JavaScript ↔ Dart 桥。
+//
+// 在每个 V8 context 上注入两个对象:
+//   * window.cefQuery:页面调 cefQuery({ request, onSuccess, onFailure })
+//     → 把请求发回 Dart 侧。
+//   * CefClient.Print(name, message, callbackId):反向,Dart 调用后页面收到。
 
+#ifndef WEBVIEW_JS_HANDLER_H
+#define WEBVIEW_JS_HANDLER_H
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+#include <string>
 #include <functional>
-#include <memory>
-#include <cstdint>
 
+#include "cef_v8.h"
 
-static const char kJSCallCppFunctionMessage[] = "JSCallCppFunction";		 //js 调用 c++ 的消息
-static const char kExecuteJsCallbackMessage[] = "ExecuteJsCallback";		 //c++ 调用 js 的消息
-static const char kEvaluateCallbackMessage[] = "EvaluateCallback";		 //js 回调 c++ 的消息
-static const char kFocusedNodeChangedMessage[] = "FocusedNodeChanged";		 //网页中获取焦点的元素变化消息
+namespace webview_cef {
 
-struct JSValue {
-    enum class Type { STRING, INT, BOOL, DOUBLE, ARRAY, UNKNOWN } type;
-
-    std::string stringValue;
-    int intValue;
-    bool boolValue;
-    double doubleValue;
-
-    std::vector<JSValue> arrayValue;
-    std::map<std::string, JSValue> objectValue;
-
-    JSValue() : type(Type::UNKNOWN) {}
+// 来自 JS 的请求,由 JS handler 解析后回调到上层。
+struct JsRequest {
+    int browser_id = 0;
+    int frame_id = 0;
+    std::string name;        // 调用方提供的函数名
+    std::string param;       // JSON 字符串
+    int request_id = 0;      // 用于回传 callback
 };
 
-class CefJSBridge
-{
-	typedef std::map<int/* js_callback_id*/, std::pair<CefRefPtr<CefV8Context>/* context*/, std::pair<CefRefPtr<CefV8Value>/* callback*/, CefRefPtr<CefV8Value>/* rawdata*/>>> RenderCallbackMap;
-	typedef std::map<int/* reqId*/, std::pair<CefRefPtr<CefFrame>/* frame*/, CefString /* callback*/>> StartRequestCallbackMap;
+// 上层注入的回调:把请求转给 Dart。
+using JsRequestCallback = std::function<void(const JsRequest&)>;
 
-public:
-	CefJSBridge() {};
-	~CefJSBridge() {};
-public:
-	static int  GetNextReqID();
-	bool StartRequest(int reqId, const CefString& strCmd, const CefString& strCallback, const CefString& strArgs);
-    bool EvaluateCallback(const CefString& callbackId, const JSValue& result);
+class WebviewJsHandler : public CefV8Handler {
+ public:
+    explicit WebviewJsHandler(JsRequestCallback cb) : cb_(std::move(cb)) {}
 
-	bool CallCppFunction(const CefString& function_name, const CefString& params, CefRefPtr<CefV8Value> callback, CefRefPtr<CefV8Value> rawdata);
-	void RemoveCallbackFuncWithFrame(CefRefPtr<CefFrame> frame);
-	bool ExecuteJSCallbackFunc(int js_callback_id, bool has_error, const CefString& json_result);
-private:
-	uint32_t						js_callback_id_ = 0;
-	RenderCallbackMap			render_callback_;
-	StartRequestCallbackMap     startRequest_callback_;
+    bool Execute(const CefString& name,
+                 CefRefPtr<CefV8Value> object,
+                 const CefV8ValueList& arguments,
+                 CefRefPtr<CefV8Value>& retval,
+                 CefString& exception) override;
+
+    // 把 window 上的函数绑定到指定 context。
+    static void BindToContext(CefRefPtr<CefV8Value> window,
+                              CefRefPtr<WebviewJsHandler> handler);
+
+ private:
+    JsRequestCallback cb_;
+
+    IMPLEMENT_REFCOUNTING(WebviewJsHandler);
 };
 
-class CefJSHandler : public CefV8Handler
-{
-public:
-	CefJSHandler() {}
-	virtual bool Execute(const CefString& name,
-		CefRefPtr<CefV8Value> object,
-		const CefV8ValueList& arguments,
-		CefRefPtr<CefV8Value>& retval,
-		CefString& exception) override;
-	void AttachJSBridge(std::shared_ptr<CefJSBridge> js_bridge) { js_bridge_ = js_bridge; }
-	IMPLEMENT_REFCOUNTING(CefJSHandler);
-private:
-	std::shared_ptr<CefJSBridge> js_bridge_;
-};
+}  // namespace webview_cef
 
-#endif  // WEBVIEW_CEF_JS_HANDLER_H_
+#endif  // WEBVIEW_JS_HANDLER_H
